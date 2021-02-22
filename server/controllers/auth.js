@@ -67,7 +67,7 @@ module.exports = class AuthRouter {
     @body(loginSchema)
     static async login(ctx, next) {
         const { body } = ctx.request
-        console.log(body)
+        console.log("login", body)
             // 判断是否开放 ldap，如果开放ldap, 
             // 根据ldap的用户信息生成新用户
         if (config.openLdap) {

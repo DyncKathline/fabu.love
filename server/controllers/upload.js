@@ -21,8 +21,6 @@ var path = require('path')
 var os = require('os')
 var mime = require('mime')
 var uuidV4 = require('uuid/v4')
-var apkParser3 = require('../library/apkparser/apkparser')
-var unzip = require('unzipper')
 var etl = require('etl')
 var mkdirp = require('mkdirp')
 var ipaMataData = require('ipa-metadata2')
@@ -40,7 +38,7 @@ var uploadPrefix = "upload";
 
 function createFolderIfNeeded(path) {
     if (!fs.existsSync(path)) {
-        mkdirp.sync(path, function(err) {
+        mkdirp.sync(path, function (err) {
             if (err) console.error(err)
         })
     }
@@ -84,8 +82,6 @@ module.exports = class UploadRouter {
                 releaseVersionCode: result.version.versionCode
             })
         }
-        console.log(result.app.autoPublish)
-        console.log(result.version.released)
         ctx.body = responseWrapper(result);
     }
 
@@ -103,23 +99,22 @@ module.exports = class UploadRouter {
 
 async function parseAppAndInsertToDB(file, user, team) {
     var filePath = file.path
-    var parser, extractor;
+    var parser;
     if (path.extname(filePath) === ".ipa") {
         parser = parseIpa
-        extractor = extractIpaIcon
     } else if (path.extname(filePath) === ".apk") {
         parser = parseApk
-        extractor = extractApkIcon
     } else {
         throw (new Error("文件类型有误,仅支持IPA或者APK文件的上传."))
     }
 
     //解析ipa和apk文件
     var info = await parser(filePath);
+    // console.log('app info ----> ', info)
     var fileName = info.bundleId + "_" + info.versionStr + "_" + info.versionCode
-        //解析icon图标
-    var icon = await extractor(filePath, fileName, team);
 
+    //解析icon图标
+    var icon = await extractor(info.icon, fileName, team);
 
     //移动文件到对应目录
     var fileRelatePath = path.join(team.id, info.platform)
@@ -136,7 +131,7 @@ async function parseAppAndInsertToDB(file, user, team) {
     var readStream = fs.createReadStream(filePath)
     var writeStream = fs.createWriteStream(fileRealPath)
     readStream.pipe(writeStream)
-    readStream.on('end',function(){
+    readStream.on('end', function () {
         fs.unlinkSync(filePath)
     })
 
@@ -212,7 +207,7 @@ function parseIpa(filename) {
     return new Promise((resolve, reject) => {
         parser.parse().then(result => {
             console.log('app info ----> ', result)
-            console.log('icon base64 ----> ', result.icon)
+            // console.log('icon base64 ----> ', result.icon)
 
             var info = {}
             info.platform = 'ios'
@@ -222,6 +217,7 @@ function parseIpa(filename) {
             info.versionStr = result.CFBundleShortVersionString
             info.versionCode = result.CFBundleVersion
             info.iconName = result.CFBundleIcons.CFBundlePrimaryIcon.CFBundleIconName
+            info.icon = result.icon
             try {
                 const environment = result.mobileProvision.Entitlements['aps-environment']
                 const active = result.mobileProvision.Entitlements['beta-reports-active']
@@ -236,70 +232,13 @@ function parseIpa(filename) {
             }
             resolve(info)
         })
-        
+
     })
-}
-
-///解析ipa icon
-async function extractIpaIcon(filename, guid, team) {
-    var ipaInfo = await parseIpa(filename)
-    var iconName = ipaInfo.iconName || 'AppIcon';
-    var tmpOut = tempDir + '/{0}.png'.format(guid)
-    var found = false
-    var buffer = fs.readFileSync(filename)
-    var data = await unzip.Open.buffer(buffer)
-    await new Promise((resolve, reject) => {
-        data.files.forEach(file => {
-            if (file.path.indexOf(iconName + '60x60@2x.png') != -1) {
-                found = true
-                file.stream()
-                    .pipe(fs.createWriteStream(tmpOut))
-                    .on('error', reject)
-                    .on('finish', resolve)
-            }
-        })
-    }).catch({
-        
-    })
-
-    if (!found) {
-        throw (new Error('can not find icon'))
-    }
-
-    var pnfdefryDir = path.join(__dirname, '..', 'library/pngdefry')
-        //写入成功判断icon是否是被苹果破坏过的图片
-    var exeName = '';
-    if (os.type() === 'Darwin') {
-        exeName = 'pngfy-osx';
-    } else if (os.type() === 'Linux') {
-        exeName = 'pngfy-linux';
-    } else {
-        throw new Error('Unknown OS!');
-    }
-
-    var { stderr, stdout } = await exec(path.join(pnfdefryDir, exeName + ' -s _tmp ', tmpOut));
-    if (stderr) {
-        throw stderr;
-    }
-    //执行pngdefry -s xxxx.png 如果结果显示"not an -iphone crushed PNG file"表示改png不需要修复
-    var iconRelatePath = path.join(team.id, "/icon")
-    var iconSuffix = "/" + guid + "_i.png"
-    createFolderIfNeeded(path.join(uploadDir, iconRelatePath))
-    if (stdout.indexOf('not an -iphone crushed PNG file') != -1) {
-        await fs.renameSync(tmpOut, path.join(uploadDir,iconRelatePath, iconSuffix))
-        return { 'success': true, 'fileName': iconRelatePath + iconSuffix }
-    }
-    await fs.unlinkSync(tmpOut)
-    fs.renameSync(tempDir + '/{0}_tmp.png'.format(guid), path.join(uploadDir, iconRelatePath, iconSuffix))
-    return { 'success': true, 'fileName': iconRelatePath + iconSuffix }
-
 }
 
 ///解析apk
-function parseApk(filename)  {
-
+function parseApk(filename) {
     const parser = new AppInfoParser(filename)
-
 
     return new Promise((resolve, reject) => {
         parser.parse().then(result => {
@@ -308,7 +247,7 @@ function parseApk(filename)  {
             // console.log('====================================', JSON.stringify(result));
             var label = undefined
 
-            if(result.application && result.application.label && result.application.label.length > 0) {
+            if (result.application && result.application.label && result.application.label.length > 0) {
                 label = result.application.label[0]
             }
 
@@ -316,126 +255,47 @@ function parseApk(filename)  {
                 label = label.replace(/'/g, '')
             }
             var appName = (result['application-label'] || result['application-label-zh-CN'] || result['application-label-es-US'] ||
-            result['application-label-zh_CN'] || result['application-label-es_US'] || label || 'unknown')
+                result['application-label-zh_CN'] || result['application-label-es_US'] || label || 'unknown')
 
             var info = {
                 'appName': appName.replace(/'/g, ''),
+                'icon': result.icon,
                 'versionCode': Number(result.versionCode),
                 'bundleId': result.package,
                 'versionStr': result.versionName,
                 'platform': 'android'
             }
             resolve(info)
-          }).catch(err => {
+        }).catch(err => {
             console.log('err ----> ', err)
-          })
-        // apkParser3(filename, (err, data) => {
-        //     var apkPackage = parseText(data.package)
-        //     console.log(data)
-        //     console.log("----------------")
-        //     console.log(data['application-label'])
-        //     var label = undefined
-        //     data['launchable-activity']
-        //         .split(' ')
-        //         .filter(s => s.length != 0)
-        //         .map(element => { return element.split('=') })
-        //         .forEach(element => {
-        //             if (element && element.length > 2 && element[0] == 'label') {
-        //                 label = element[1]
-        //             }
-        //         })
-        //     if (label) {
-        //         label = label.replace(/'/g, '')
-        //     }
-        //     var appName = (data['application-label'] || data['application-label-zh-CN'] || data['application-label-es-US'] ||
-        //         data['application-label-zh_CN'] || data['application-label-es_US'] || label || 'unknown')
-        //     var info = {
-        //         'appName': appName.replace(/'/g, ''),
-        //         'versionCode': Number(apkPackage.versionCode),
-        //         'bundleId': apkPackage.name,
-        //         'versionStr': apkPackage.versionName,
-        //         'platform': 'android'
-        //     }
-        //     resolve(info)
-        // })
-    })
-}
-
-///解析apk icon
-function extractApkIcon(filepath, guid, team) {
-    return new Promise((resolve, reject) => {
-        apkParser3(filepath, (err, data) => {
-            var iconPath = false;
-            var iconSize = [640, 320, 240, 160]
-            for (var i in iconSize) {
-                if (typeof data['application-icon-' + iconSize[i]] !== 'undefined') {
-                    iconPath = data['application-icon-' + iconSize[i]]
-                    break;
-                }
-            }
-            if (!iconPath) {
-                throw ('can not find app icon')
-            }
-
-            iconPath = iconPath.replace(/'/g, '')
-            var dir = path.join(uploadDir, team.id, "icon")
-            var realPath = path.join(team.id, "icon", '/{0}_a.png'.format(guid))
-            createFolderIfNeeded(dir)
-            var tempOut = path.join(uploadDir, realPath)
-            
-            var { ext, dir } = path.parse(iconPath);
-            // 获取到最大的png的路径
-            let maxSizePath;
-            // if (ext === '.xml') {
-
-            // } else {
-            //     fs.createReadStream(filepath)
-            //         .pipe(unzip.Parse())
-            //         .pipe(etl.map(entry => {
-            //             // 适配iconPath为ic_launcher.xml的情况
-            //             const entryPath = entry.path
-            //             // const isXml = entryPath.indexOf('.xml') >= 0
-            //             // if ( (!isXml && entryPath.indexOf(iconPath) != -1) || (isXml && entry.path.indexOf(maxSizePath) != -1)) {
-            //             //     console.log(entry.path)
-            //             entry.pipe(etl.toFile(tempOut))
-            //             resolve({ 'success': true, fileName: realPath })
-            //             // } else {
-            //             //     entry.autodrain()
-            //             // }
-            //         }))
-            // }
-
-            const initialPromise = ext === '.xml' ?
-                unzip.Open.file(filepath).then(directory => {
-                    const getMaxSizeImagePath = compose(get('path'), maxBy('compressedSize'),
-                        filter(entry => entry.path.indexOf(dir) >= 0 && entry.path.indexOf('.png') >= 0), get('files'));
-                    maxSizePath = getMaxSizeImagePath(directory)
-                }) : new Promise((resolve) => resolve())
-            initialPromise.then(() => {
-                fs.createReadStream(filepath)
-                    .pipe(unzip.Parse())
-                    .pipe(etl.map(entry => {
-                        // 适配iconPath为ic_launcher.xml的情况
-                        const entryPath = entry.path
-                        const isXml = entryPath.indexOf('.xml') >= 0
-                        if ( (!isXml && entryPath.indexOf(iconPath) != -1) || (isXml && entry.path.indexOf(maxSizePath) != -1)) {
-                            console.log(entry.path)
-                            entry.pipe(etl.toFile(tempOut))
-                            resolve({ 'success': true, fileName: realPath })
-                        } else {
-                            resolve({ 'success': true, fileName: realPath })
-                            entry.autodrain()
-                        }
-                    }))
-            })
         })
     })
 }
 
+///解析apk or ipa icon
+function extractor(imgData, guid, team) {
+    return new Promise((resolve, reject) => {
+        var dir = path.join(uploadDir, team.id, "icon")
+        var realPath = path.join(team.id, "icon", '/{0}_a.png'.format(guid))
+        createFolderIfNeeded(dir)
+        var tempOut = path.join(uploadDir, realPath)
+
+        var base64Data = imgData.replace(/^data:image\/\w+;base64,/, "");
+        var dataBuffer = new Buffer(base64Data, 'base64');
+        fs.writeFile(tempOut, dataBuffer, function (err) {
+            if (err) {
+                resolve({ 'success': false, fileName: realPath })
+            } else {
+                resolve({ 'success': true, fileName: realPath })
+            }
+        });
+    })
+}
+
 ///格式化输入字符串 /用法: "node{0}".format('.js'), 返回'node.js'
-String.prototype.format = function() {
+String.prototype.format = function () {
     var args = arguments
-    return this.replace(/\{(\d+)\}/g, function(s, i) {
+    return this.replace(/\{(\d+)\}/g, function (s, i) {
         return args[i]
     })
 }

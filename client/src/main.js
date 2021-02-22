@@ -2,11 +2,11 @@
 // (runtime-only or standalone) has been set in webpack.base.conf with an alias.
 import Vue from 'vue'
 import App from './App'
-import {Button, Dialog, Menu, Input, Switch, Popover, Form, Upload, Progress, Badge, Container, Header, Aside, Main, Footer, Loading, Message, MenuItem, Table, TableColumn, FormItem, Pagination, Radio, MessageBox} from 'element-ui'
+import { Button, Dialog, Menu, Input, Switch, Popover, Form, Upload, Progress, Badge, Container, Header, Aside, Main, Footer, Loading, Message, MenuItem, Table, TableColumn, FormItem, Pagination, Radio, MessageBox } from 'element-ui'
 
 import router from './router'
 import axios from 'axios'
-import {configAxios} from './api/basehttp'
+import { configAxios } from './api/basehttp'
 
 import VueLazyLoad from 'vue-lazyload'
 import infiniteScroll from 'vue-infinite-scroll'
@@ -50,7 +50,7 @@ Vue.prototype.$confirm = MessageBox.confirm
 Vue.prototype.$message = Message
 
 Vue.use(VueLazyLoad, {
-  loading: require('./assets/logo.png')
+    loading: require('./assets/logo.png')
 })
 
 // 配置接口信息
@@ -58,8 +58,8 @@ configAxios()
 
 /* eslint-disable no-new */
 new Vue({
-  el: '#app',
-  router,
-  components: {App},
-  template: '<App/>'
+    el: '#app',
+    router,
+    components: { App },
+    template: '<App/>'
 })

@@ -375,7 +375,7 @@ module.exports = class AppRouter {
                 var ipType = app.grayStrategy.ipType
                 var ipList = app.grayStrategy.ipList
                 var clientIp = await getIp(ctx.request)
-                console.log(clientIp)
+                console.log("clientIp", clientIp)
                 if (ipType == 'white' && _.includes(ipList, clientIp)) { //如果是white 则允许获得灰度版本
                     if (!app.grayStrategy.downloadCountLimit || app.grayStrategy.downloadCountLimit > lastestGrayVersion.downloadCount) {
                         version = lastestGrayVersion
@@ -414,9 +414,9 @@ module.exports = class AppRouter {
         // }
 
         var lastestGrayVersion = await Version.findOne({ _id: app.grayReleaseVersionId })
-            // var version = await Version.findOne({ appId: app._id })
-        var normalVersion = await Version.findOne({ _id: app.releaseVersionId })
-        var version = normalVersion
+        var version = await Version.findOne({ appId: app._id })
+            // var normalVersion = await Version.findOne({ _id: app.releaseVersionId })
+            // var version = normalVersion
         var lastestGrayVersionCode = 0
         var normalVersionCode = 0
         if (version && version.versionCode) {
