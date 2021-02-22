@@ -23,7 +23,6 @@ var mime = require('mime')
 var uuidV4 = require('uuid/v4')
 var etl = require('etl')
 var mkdirp = require('mkdirp')
-var ipaMataData = require('ipa-metadata2')
 const AppInfoParser = require('app-info-parser')
 const { compose, maxBy, filter, get } = require('lodash/fp')
 
@@ -145,27 +144,27 @@ async function parseAppAndInsertToDB(file, user, team) {
         info.shortUrl = Math.random().toString(36).substring(2, 5) + Math.random().toString(36).substring(2, 5);
         app = new App(info)
         app.ownerId = team._id;
-        app.currentVersion = info.versionCode
-        await app.save()
+        app.currentVersion = info.versionCode;
+        await app.save();
         info.uploader = user.username;
         info.uploaderId = user._id;
-        info.size = fs.statSync(fileRealPath).size
-        var version = Version(info)
-        version.md5 = filemd5
+        info.size = fs.statSync(filePath).size;
+        var version = Version(info);
+        version.md5 = filemd5;
         version.appId = app._id;
         if (app.platform == 'ios') {
-            version.installUrl = mapInstallUrl(app.id, version.id)
+            version.installUrl = mapInstallUrl(app.id, version.id);
         } else {
-            version.installUrl = info.downloadUrl
+            version.installUrl = info.downloadUrl;
         }
-        await version.save()
-        return { 'app': app, 'version': version }
+        await version.save();
+        return { 'app': app, 'version': version };
     }
     var version = await Version.findOne({ appId: app.id, versionCode: info.versionCode })
     if (!version) {
         info.uploader = user.username;
         info.uploaderId = user._id;
-        info.size = fs.statSync(fileRealPath).size
+        info.size = fs.statSync(filePath).size
         var version = Version(info)
         version.appId = app._id;
         version.md5 = filemd5

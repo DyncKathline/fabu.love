@@ -148,11 +148,12 @@ module.exports = class AppRouter {
                 $elemMatch: { username: user.username }
             }
         })
-        var app = await App.find({ _id: id, ownerId: team._id })
+        var app = await App.find({ _id: id, ownerId: team._id });
         if (!app) {
             throw new Error("应用不存在或您没有权限查询该应用")
         }
         var versions = await Version.find({ appId: id })
+            .sort({ '_id' : -1 })//1为升序，-1为降序
             .limit(size).skip(page * size)
         ctx.body = responseWrapper(versions)
     }

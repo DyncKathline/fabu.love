@@ -27,7 +27,6 @@
         "bunyan": "^1.8.12",
         "etl": "^0.5.13",
         "hoek": ">=4.2.1",
-        "ipa-metadata2": "^1.4.2",
         "jsonwebtoken": "^8.5.0",
         "koa": "^2.4.1",
         "koa-body": "^2.5.0",
