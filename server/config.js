@@ -6,6 +6,7 @@ const common = {
     baseUrl: process.env.FABU_BASE_URL || "https://127.0.0.1:9898", //baseUrl应用请求的url地址,比如https://fabu.love
     port: process.env.FABU_PORT || "9898", //server运行的端口
     apiPrefix: 'api',
+
     fileDir: process.env.FABU_UPLOAD_DIR || path.join(__dirname, ".."), //上传文件的存放目录
     secret: process.env.FABU_SECRET || "secretsecret", //secret
     dbUser: process.env.FABU_DBUSER || undefined, //数据库用户 (没有开启mongodb用户认证的可以不填写)
@@ -18,6 +19,12 @@ const common = {
     // dbName: process.env.FABU_DB_NAME || "fabulove", //数据库名称
     // dbHost: process.env.FABU_DB_HOST || "localhost", //数据库地址
     // dbPort: process.env.FABU_DB_PORT || "3306", //数据库端口
+
+    redisHost: process.env.FABU_DB_HOST || "127.0.0.1",
+    redisPort: process.env.FABU_DB_HOST || "6379",
+    redisPwd: process.env.FABU_DB_HOST || "",
+    redisDB: process.env.FABU_DB_HOST || "0",
+    redisPrefix: process.env.FABU_DB_HOST || "kath",
 
     emailService: process.env.FABU_EMAIL_SERVICE || "qq", //邮件相关配置 用于找回密码和邀请团队成员发送邮件
     emailUser: process.env.FABU_EMAIL_USER || "",

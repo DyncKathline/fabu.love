@@ -113,7 +113,7 @@
 
       this.userInfo = getUserInfo()
       this.currentTeam = getUserTeam()
-      this.teamArr = this.userInfo.teamArr
+      this.teamArr = this.userInfo ? this.userInfo.teamArr : []
       this.loadMessage()
     },
     created() {

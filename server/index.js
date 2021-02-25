@@ -4,7 +4,7 @@ import config from './config';
 
 const Koa = require('koa')
 const bodyParser = require('koa-bodyparser')
-    // 导入controller middleware:
+// 导入controller middleware:
 const rest = require('./helper/rest')
 const serve = require('koa-static');
 const cors = require('koa-cors')
@@ -27,7 +27,7 @@ app.use(bodyParser())
 app.use(serve(path.resolve(config.fileDir)))
 app.use(serve(path.join(__dirname, '..', 'client/dist')));
 
-app.use(function(ctx, next) {
+app.use(function (ctx, next) {
     if (ctx.request.path.indexOf("/api") != 0) {
         ctx.response.type = 'html';
         ctx.response.body = fs.readFileSync(path.join(__dirname, '..', 'client/dist/index.html'), 'utf8');
@@ -49,12 +49,24 @@ var middleware = koajwt({ secret: config.secret, debug: true }).unless({
     ]
 })
 
-app.use(helper.skip(middleware).if((ctx) => {
-    var key = ctx.request.headers['apikey']
-    return !isUndefined(key)
-}))
+app.use(async (ctx, next) => {
+    return next().catch((err) => {
+        // console.log('kath---', err.status)
+        // console.log('kath---', err)
+        if (err.status === 401) {
+            // 自定义返回结果
+            ctx.status = 401;
+            ctx.body = {
+                code: 401,
+                msg: err.message
+            }
+        } else {
+            throw err;
+        }
+    })
+});
 
-app.use(async(ctx, next) => {
+app.use(async (ctx, next) => {
     var key = ctx.request.headers['apikey']
     if (!isUndefined(key)) {
         var user = await Varify.auth(key).catch(error => {
@@ -66,6 +78,11 @@ app.use(async(ctx, next) => {
         await next()
     }
 })
+
+app.use(helper.skip(middleware).if((ctx) => {
+    var key = ctx.request.headers['apikey']
+    return !isUndefined(key)
+}))
 
 app.use(rest.restify())
 app.use(router.routes())

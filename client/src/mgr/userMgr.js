@@ -52,8 +52,8 @@ export function saveUserTeam(team) {
 // 获取当前用户选择的team
 export function getUserTeam() {
   let user = StorageMgr.getItem(USERINFO_KEY)
-  if (user.teamArr.length === 0) {
-    return
+  if (user && user.teamArr.length === 0) {
+    return {}
   }
   let item = StorageMgr.getItem(CURRENT_USERTRAM_KEY)
   return item
