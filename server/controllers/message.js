@@ -1,7 +1,7 @@
 "use strict";
 
 import { request, summary, tags, body, description, query } from "../swagger";
-import { User, userSchema } from "../model/user";
+import User from "../model/user";
 import Team from "../model/team";
 import Message from "../model/message";
 
@@ -20,13 +20,15 @@ module.exports = class MessageRouter {
   })
   @tag
   static async getMessages(ctx, next) {
-    var page = ctx.query.page || 0;
-    var size = ctx.query.size || 10;
-    var user = ctx.state.user.data;
+    const page = ctx.query.page || 0;
+    const size = ctx.query.size || 10;
+    const user = ctx.state.user.data;
 
-    var result = await Message.find({ receiver: user.id })
-      .limit(size)
-      .skip(page * size);
+    const result = await Message.findAll({
+      where: { receiver: user.id },
+      offset: page,
+      limit: size
+    });
     ctx.body = responseWrapper(result);
   }
 
@@ -34,9 +36,20 @@ module.exports = class MessageRouter {
   @summary("获取消息总条数和未读条数")
   @tag
   static async getMessageCount(ctx, next) {
-    var user = ctx.state.user.data;
-    var count = await Message.count({ receiver: user.id });
-    var unread = await Message.count({ receiver: user.id, status: "unread" });
+    const { caches } = ctx;
+    const user = ctx.state.user.data;
+    const count = await Message.count({
+      where: { receiver: user.id }
+    });
+    // let status = caches.Status.filter((value) => {
+    //   return value.name === "unread";
+    // });
+    // if(status.length > 0) {
+    //   status = status[0]
+    // }
+    const unread = await Message.count({
+      where: { receiver: user.id, status: 1 }
+    });
     ctx.body = responseWrapper({ total: count, unread: unread });
   }
 
@@ -44,9 +57,18 @@ module.exports = class MessageRouter {
   @summary("把消息全部标记为已读")
   @tag
   static async markMessageRead(ctx, next) {
-    var user = ctx.state.user.data;
-    var result = await Message.update({ receiver: user.id ,status:'unread'},{
-        status: "hasread"
+    const { caches } = ctx;
+    const user = ctx.state.user.data;
+    // let status = caches.Status.filter((value) => {
+    //   return value.name === "unread";
+    // });
+    // if(status.length > 0) {
+    //   status = status[0]
+    // }
+    const result = await Message.update({
+        status: 2
+    }, {
+      where: { receiver: user.id, status: 1}
     });
     ctx.body = responseWrapper(true,'所有消息已标记已读');
   }
@@ -59,10 +81,12 @@ module.exports = class MessageRouter {
   })
   @tag
   static async clearMessages(ctx, next) {
-    var page = ctx.query.page || 0;
-    var size = ctx.query.size || 10;
-    var user = ctx.state.user.data;
-    await Message.deleteMany({ receiver: user.id });
+    const page = ctx.query.page || 0;
+    const size = ctx.query.size || 10;
+    const user = ctx.state.user.data;
+    await Message.destroy({
+      where: { receiver: user.id }
+    });
     ctx.body = responseWrapper(true, "消息已清空");
   }
 };
