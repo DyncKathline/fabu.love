@@ -185,7 +185,7 @@ module.exports = app => {
       field: "releaseVersionCode"
     },
     releaseVersionId: {
-      type: DataTypes.INTEGER(11),
+      type: DataTypes.STRING(32),
       allowNull: false,
       defaultValue: "0",
       primaryKey: false,
@@ -194,7 +194,7 @@ module.exports = app => {
       field: "releaseVersionId"
     },
     grayReleaseVersionId: {
-      type: DataTypes.INTEGER(11),
+      type: DataTypes.STRING(32),
       allowNull: false,
       defaultValue: "0",
       primaryKey: false,

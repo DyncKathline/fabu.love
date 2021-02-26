@@ -412,6 +412,7 @@ module.exports = class AppRouter {
     @path({ teamId: { type: 'string', require: true }, id: { type: 'string', require: true } })
     @body(grayRelease)
     static async grayReleaseAppVersion(ctx, next) {
+        const { caches } = ctx;
         const user = ctx.state.user.data;
         const { body } = ctx.request;
         const { teamId, id } = ctx.validatedParams;
@@ -422,12 +423,65 @@ module.exports = class AppRouter {
             ctx.body = responseWrapper(false, app.msg);
             return;
         }
-        let version = await Version.findById(body.version.versionId, "versionStr");
-
-        await App.updateOne({ id: app.id }, {
-            grayReleaseVersionId: version.id,
-            grayStrategy: body.strategy
+        let version = await Version.findOne({
+            where: {
+                id: body.version.versionId
+            }
         });
+
+        const appRow = await App.update({
+            grayReleaseVersionId: version.id
+        }, {
+            where: {
+                appId: app.appId
+            }
+        });
+        if(body.strategy) {
+            let ipType = caches.IpType.filter((value) => {
+                return value.name === body.strategy.ipType;
+            });
+            if(ipType.length > 0) {
+                ipType = ipType[0];
+            }else{
+                ctx.body = responseWrapper(false, "ip地址限制类型不存在");
+                return;
+            }
+            let updateMode = caches.UpdateMode.filter((value) => {
+                return value.name === body.strategy.updateMode;
+            });
+            if(updateMode.length > 0) {
+                updateMode = updateMode[0];
+            }else{
+                ctx.body = responseWrapper(false, "更新方式类型不存在");
+                return;
+            }
+
+            const grayStrategy = await GrayStrategy.findOne({
+                where: {
+                    id: version.id
+                }
+            });
+            if(grayStrategy) {
+                await GrayStrategy.update({
+                    downloadCountLimit: body.strategy.downloadCountLimit.length === 0 ? 0 : body.strategy.downloadCountLimit,
+                    ipList: body.strategy.ipList.join(),
+                    ipType: ipType.id,
+                    updateMode: updateMode.id,
+                }, {
+                    where: {
+                        id: version.id
+                    }
+                })
+            }else{
+                await GrayStrategy.create({
+                    id: version.id,
+                    downloadCountLimit: body.strategy.downloadCountLimit.length === 0 ? 0 : body.strategy.downloadCountLimit,
+                    ipList: body.strategy.ipList.join(),
+                    ipType: ipType.id,
+                    updateMode: updateMode.id,
+                })
+            }
+        }
         ctx.body = responseWrapper(true, "版本已灰度发布");
     }
 
@@ -452,7 +506,9 @@ module.exports = class AppRouter {
             return;
         }
         let version = await Version.findOne({
-            versionCode: body.versionCode
+            where: {
+                id: body.versionId
+            }
         });
         if (!version) {
             ctx.body = responseWrapper(false, "版本不存在");
@@ -467,7 +523,7 @@ module.exports = class AppRouter {
             });
         } else {
             await App.update({
-                releaseVersionId: 0,
+                releaseVersionId: "",
                 releaseVersionCode: 0
             }, {
                 where: { appId: app.appId }
@@ -557,7 +613,7 @@ module.exports = class AppRouter {
                 }
             });
             if(!version) {
-                ctx.body = responseWrapper(false, "应用不存在");
+                ctx.body = responseWrapper(false, "版本不存在");
                 return;
             }
             app = await App.findOne({
@@ -626,15 +682,23 @@ module.exports = class AppRouter {
     @tag
     @path({ appid: { type: 'string', require: true }, versionId: { type: 'string', require: true } })
     static async cancelReleaseByVersionId(ctx, next) {
-        var { appId, versionId } = ctx.validatedParams
-        var app = await App.findOne({ id: appId })
-        var version = await Version.findOne({ id: versionId })
+        const { appId, versionId } = ctx.validatedParams
+        const app = await App.findOne({
+            where: {
+                appId: appId
+            }
+        })
+        const version = await Version.findOne({
+            where: { id: versionId }
+        })
 
         if (!app) {
-            throw new Error("应用不存在")
+            ctx.body = responseWrapper(false, "应用不存在");
+            return;
         }
         if (!version) {
-            throw new Error("版本不存在")
+            ctx.body = responseWrapper(false, "版本不存在");
+            return;
         }
 
         if (versionId == app.releaseVersionId) {

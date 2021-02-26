@@ -34,7 +34,8 @@
           class="version-table-one"
         >
           <template slot-scope="scope">
-            <span :class="getIconClass(scope.row)"></span>
+            <span :class="{'version-table-one-lighting': appInfo.releaseVersionId && appInfo.releaseVersionId === scope.row.id}"></span>
+            <span :class="{'version-table-one-gray': appInfo.grayReleaseVersionId && appInfo.grayReleaseVersionId === scope.row.id}"></span>
           </template>
         </el-table-column>
         <el-table-column
@@ -77,10 +78,10 @@
           width="200"
         >
           <template slot-scope="scope">
-            <button class="appversion-elButton" @click="releaseApp(scope.row)"><i class="icon-ic_overview"></i></button>
-            <button class="appversion-elButton" @click="clickDownLoad(scope.row)"><i class="icon-ic_download"></i></button>
-            <button class="appversion-elButton" @click="clickEditor(scope.row)"><i class="icon-ic_edit"></i></button>
-            <button class="appversion-elButton" @click="clickDelect(scope.row)"><i class="icon-ic_delete"></i></button>
+            <button class="appversion-elButton" @click.stop="releaseApp(scope.row)"><i class="icon-ic_overview"></i></button>
+            <button class="appversion-elButton" @click.stop="clickDownLoad(scope.row)"><i class="icon-ic_download"></i></button>
+            <button class="appversion-elButton" @click.stop="clickEditor(scope.row)"><i class="icon-ic_edit"></i></button>
+            <button class="appversion-elButton" @click.stop="clickDelect(scope.row)"><i class="icon-ic_delete"></i></button>
           </template>
         </el-table-column>
       </el-table>
