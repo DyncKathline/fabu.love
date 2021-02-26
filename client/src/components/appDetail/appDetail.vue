@@ -3,13 +3,13 @@
     <!--头部-->
     <appDetailHeader
       :appInfo="this.appInfo"
-      v-show="this.appInfo._id"
+      v-show="this.appInfo.id"
     >
     </appDetailHeader>
 
     <appVersions
       v-show="!showAppSetting"
-      v-if="appInfo._id"
+      v-if="appInfo.id"
       :appInfo="appInfo"
       :subTitleArr="subTitleArr"
       @updateAppInfoSuccess="updateAppInfoSuccess"
@@ -61,13 +61,13 @@
     },
     methods: {
       getAppDetailData() {
-        AppResourceApi.getAppDetail(this.userteam._id, this.$route.params.appId).then((res) => {
+        AppResourceApi.getAppDetail(this.userteam.id, this.$route.params.appId).then((res) => {
           console.log(res)
           this.appInfo = res.data
           this.subTitleArr = []
           this.subTitleArr.push(this.appInfo.bundleId)
           this.subTitleArr.push(this.axios.defaults.baseURL + this.appInfo.shortUrl)
-          this.subTitleArr.push(this.appInfo._id)
+          this.subTitleArr.push(this.appInfo.appId)
           this.bus.$emit('appdetail', res.data.appName)
         }, reject => {
           this.$message.error(reject)

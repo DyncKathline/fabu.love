@@ -1,15 +1,20 @@
 'use strict';
 
-import { request, summary, tags, body, description } from '../swagger';
-import { User, userSchema } from "../model/user";
-import Team from "../model/team"
-import { responseWrapper } from "../helper/util";
-import bcrypt from "bcrypt"
-import Fawn from "fawn"
-import Mail from '../helper/mail'
-import config from '../config'
-import Ldap from '../helper/ldap'
-import crypto from 'crypto'
+const { request, summary, tags, body, description } = require('../swagger');
+const sequelize = require('../helper/sequelize');
+const User = require("../model/user");
+const Team = require("../model/team");
+const Teams = require("../model/teams");
+const UserInTeam = require("../model/user_team");
+const TeamMembers = require("../model/team_members");
+const { responseWrapper } = require("../helper/util");
+const bcrypt = require("bcrypt");
+const Fawn = require("fawn");
+const Mail = require('../helper/mail');
+const config = require('../config');
+const Ldap = require('../helper/ldap');
+const crypto = require('crypto');
+const { userInTeam } = require('../helper/validator');
 
 const jwt = require('jsonwebtoken');
 
@@ -46,16 +51,20 @@ module.exports = class AuthRouter {
     @request('post', '/api/user/apitoken')
     @summary('生成apitoken')
     @tag
-    static async apiToken(ctx, next) {
-        var user = ctx.state.user.data
-        var user = await User.findOne({ _id: user._id })
+    async apiToken(ctx, next) {
+        const userObj = ctx.state.user.data;
+        let user = await User.findOne({
+            where: {
+                id: userObj.id
+            }
+        });
         if (user) {
             // var key = await bcrypt.hash(user.email, 10)
-            var md5 = crypto.createHash('md5')
-            var salt = user.email + Date()
-            var key = md5.update(user.email + salt).digest('hex')
-            await User.findByIdAndUpdate(user._id, { apiToken: key })
-            ctx.body = responseWrapper(key)
+            var md5 = crypto.createHash('md5');
+            var salt = user.email + Date();
+            var key = md5.update(user.email + salt).digest('hex');
+            await User.findByIdAndUpdate(user.id, { apiToken: key });
+            ctx.body = responseWrapper(key);
         } else {
             throw new Error('授权失败，请重新登录后重试')
         }
@@ -66,37 +75,38 @@ module.exports = class AuthRouter {
     @tag
     @body(loginSchema)
     static async login(ctx, next) {
-        const { body } = ctx.request
-        console.log("login", body)
-            // 判断是否开放 ldap，如果开放ldap, 
-            // 根据ldap的用户信息生成新用户
+        const { caches } = ctx;
+        const { body } = ctx.request;
+        console.log("login", body);
+        // 判断是否开放 ldap，如果开放ldap, 
+        // 根据ldap的用户信息生成新用户
         if (config.openLdap) {
             // let auth = await Ldap.auth(body.username, body.password)
-            var ldapUser = await Ldap.auth(body.username, body.password).catch((error) => {
-                console.log(error)
+            let ldapUser = await Ldap.auth(body.username, body.password).catch((error) => {
+                console.log(error);
             })
             let user = await User.findOne({ username: body.username });
             if (ldapUser && ((!user) || user.username !== ldapUser.name)) {
-                console.log('user' + ldapUser)
-                var password = await bcrypt.hash(body.password, 10)
-                var newUser = new User({ username: ldapUser.name, password: password, email: ldapUser.mail });
-                var team = new Team();
-                team._id = newUser._id;
+                console.log('user' + ldapUser);
+                let password = await bcrypt.hash(body.password, 10);
+                let newUser = new User({ username: ldapUser.name, password: password, email: ldapUser.mail });
+                let team = new Team();
+                team.id = newUser.id;
                 team.name = "我的团队";
-                team.creatorId = newUser._id;
+                team.creatorId = newUser.id;
                 team.members = [{
-                    _id: newUser._id,
+                    id: newUser.id,
                     username: newUser.username,
                     email: newUser.email,
-                    role: "owner"
-                }]
+                    role: caches.Teams[1].name//"owner"
+                }];
                 newUser.teams = [{
-                    _id: team._id,
+                    id: team.id,
                     name: team.name,
-                    role: "owner"
-                }]
-                var task = Fawn.Task();
-                var result = await task
+                    role: caches.Teams[1].name//"owner"
+                }];
+                let task = Fawn.Task();
+                let result = await task
                     .save(team)
                     .save(newUser)
                     .run({ useMongoose: true });
@@ -105,22 +115,30 @@ module.exports = class AuthRouter {
 
         const user = await User.findOne({ username: body.username });
         if (user) {
-            let valide = await bcrypt.compare(body.password, user.password)
+            let valide = await bcrypt.compare(body.password, user.password);
             if (!valide) {
-                throw new Error('用户名或密码错误')
+                ctx.body = responseWrapper(false, '用户名或密码错误');
+                return;
             }
         } else {
-            throw new Error('用户名或密码错误')
+            ctx.body = responseWrapper(false, '用户不存在');
+            return;
         }
+        const teams = await Team.findAll({
+            where: {
+                creatorId: user.id
+            }
+        });
+        user.teams = teams;
         user.token = jwt.sign({
             data: {
-                _id: user._id,
+                id: user.id,
                 username: user.username,
                 email: user.email
             },
-            exp: Math.floor(Date.now() / 1000) + (60 * 60)
-        }, config.secret)
-        ctx.body = responseWrapper(user)
+            exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24)
+        }, config.secret);
+        ctx.body = responseWrapper(user);
     }
 
     @request('post', '/api/user/register')
@@ -128,39 +146,57 @@ module.exports = class AuthRouter {
     @body(registerSchema)
     @tag
     static async register(ctx, next) {
-        var { body } = ctx.request;
+        let { body } = ctx.request;
         if (!config.allowRegister) {
-            throw new Error("不允许注册用户.");
+            // throw new Error("不允许注册用户.");
+            ctx.body = responseWrapper(false, '不允许注册用户');
+            return;
         }
-        body.password = await bcrypt.hash(body.password, 10) // 10是 hash加密的级别, 默认是10，数字越大加密级别越高
-        let user = await User.find({ username: body.username });
-        if (!user.length) {
-            var newUser = new User(body);
+        body.password = await bcrypt.hash(body.password, 10); // 10是 hash加密的级别, 默认是10，数字越大加密级别越高
+        const now = Date.now();
+        let user = await User.findOne({ username: body.username });
+        if (!user) {
+            let newUser = body;
 
-            var team = new Team();
-            team._id = newUser._id;
-            team.name = "我的团队";
-            team.creatorId = newUser._id;
-            team.members = [{
-                _id: newUser._id,
-                username: newUser.username,
-                email: newUser.email,
-                role: "owner"
-            }]
-            newUser.teams = [{
-                _id: team._id,
-                name: team.name,
-                role: "owner"
-            }]
-            var task = Fawn.Task();
-            var result = await task
-                .save(team)
-                .save(newUser)
-                .run({ useMongoose: true });
+            try {
+                const result = await sequelize.transaction(async (t) => {
+                    newUser.createTime = now;
 
-            ctx.body = responseWrapper(newUser)
+                    const { id } = await User.create(newUser, { transaction: t });
+
+                    newUser.id = id;
+                    let team = {};
+                    team.id = newUser.id;
+                    team.name = "我的团队";
+                    team.creatorId = newUser.id;
+                    team.createTime = now;
+                    const { id: teamId } = await Team.create(team, { transaction: t });
+
+                    await UserInTeam.create({userId: id, teamId: teamId});
+                    
+                    team.members = [{
+                        id: newUser.id,
+                        username: newUser.username,
+                        email: newUser.email,
+                        role: caches.Teams[1].name//"owner"
+                    }];
+                    const team_members = await TeamMembers.bulkCreate([{ teamId: teamId, userId: id }], { transaction: t });
+
+                    newUser.teams = [{
+                        id: team.id,
+                        name: team.name,
+                        role: caches.Teams[1].name//"owner"
+                    }];
+                    return newUser;
+                });
+            } catch (error) {
+                console.error(error);
+                ctx.body = responseWrapper(false, "注册失败");
+                return;
+            }
+            ctx.body = responseWrapper(newUser);
         } else {
-            throw new Error("用户已存在")
+            ctx.body = responseWrapper(false, "用户已存在");
         }
     }
 
@@ -178,19 +214,29 @@ module.exports = class AuthRouter {
     })
     @tag
     static async modifyPassword(ctx, next) {
-        var user = ctx.state.user.data;
-        var body = ctx.request.body;
-        var userData = await User.findById(user._id, "password")
+        const user = ctx.state.user.data;
+        const body = ctx.request.body;
+        const userData = await User.findOne({
+            where: {
+                id: user.id
+            }
+        });
         if (!userData) {
-            throw new Error("用户不存在");
+            ctx.body = responseWrapper(false, "用户不存在");
+            return;
         }
         let valide = await bcrypt.compare(body.oldpwd, userData.password);
         if (!valide) {
-            throw new Error("密码错误");
+            ctx.body = responseWrapper(false, "密码错误");
+            return;
         }
         body.password = await bcrypt.hash(body.newpwd, 10); // 10是 hash加密的级别, 默认是10，数字越大加密级别越高
-        await User.findByIdAndUpdate(user._id, { password: body.password })
-        ctx.body = responseWrapper(true, "密码修改成功")
+        await User.update({ password: body.password }, {
+            where: {
+                id: user.id
+            }
+        });
+        ctx.body = responseWrapper(true, "密码修改成功");
     }
 
     @request('post', '/api/user/modify')
@@ -211,21 +257,29 @@ module.exports = class AuthRouter {
     })
     @tag
     static async changeUserInfo(ctx, next) {
-        var user = ctx.state.user.data
-        var body = ctx.request.body
-        var userData = await User.findById(user._id, "username");
+        const user = ctx.state.user.data;
+        const body = ctx.request.body;
+        const userData = await User.findOne({
+            where: {
+                id: user.id
+            },
+            attributes: { exclude: ['password'] }
+        });
         if (!userData) {
-            throw new Error("用户不存在");
+            ctx.body = responseWrapper(false, "用户不存在");
+            return;
         }
-        await User.updateOne({
-            username: user.username
-        }, {
+        await User.update({
             mobile: body.mobile,
             qq: body.qq,
             company: body.company,
             career: body.career
+        }, {
+            where: {
+                username: user.username
+            }
         })
-        ctx.body = responseWrapper(true, "用户资料修改成功")
+        ctx.body = responseWrapper(true, "用户资料修改成功");
     }
 
     @request('get', '/api/user/info')
@@ -233,23 +287,54 @@ module.exports = class AuthRouter {
     @tag
     static async getUserInfo(ctx, next) {
         var user = ctx.state.user.data
-        var user = await User.findById(user._id, "-teams -password");
+        var user = await User.findOne({
+            where: {
+                id: user.id
+            },
+            attributes: {exclude: ["password"]}
+        });
         if (!user) {
-            throw new Error("用户不存在");
+            // throw new Error("用户不存在");
+            ctx.body = responseWrapper(false, "用户不存在");
+        }else {
+            ctx.body = responseWrapper(user);
         }
-        ctx.body = responseWrapper(user)
     }
 
     @request('get', '/api/user/teams')
     @summary('获取用户团队列表')
     @tag
     static async getuserTeams(ctx, next) {
-        var user = ctx.state.user.data
-        var user = await User.findById(user._id, "teams");
+        const userObj = ctx.state.user.data
+        let user = await User.findOne({
+            where: {
+                id: userObj.id
+            },
+            attributes: { exclude: ['password'] }
+        });
         if (!user) {
-            throw new Error("用户不存在");
+            ctx.body = responseWrapper(false, '用户不存在');
+            return;
+        } else {
+            const teams = await Team.findAll({
+                where: {
+                    creatorId: user.id
+                }
+            });
+            const teamTypes = await Teams.findAll();
+            teams.forEach(element => {
+                teamTypes.every(ele => {
+                    if(ele.id == element.role) {
+                        element.roleName = ele.name;
+                        return false;
+                    }
+                });
+            });
+
+            user.teams = teams;
+            ctx.body = responseWrapper(user);
+            return;
         }
-        ctx.body = responseWrapper(user)
     }
 
     @request('post', '/api/user/resetPassword')
@@ -275,11 +360,11 @@ module.exports = class AuthRouter {
             .random()
             .toString(36)
             .substring(2, 5) + Math
-            .random()
-            .toString(36)
-            .substring(2, 5);
+                .random()
+                .toString(36)
+                .substring(2, 5);
         var hashPassword = await bcrypt.hash(newPassword, 10); // 10是 hash加密的级别, 默认是10，数字越大加密级别越高
-        await User.findByIdAndUpdate(user._id, { password: hashPassword })
+        await User.findByIdAndUpdate(user.id, { password: hashPassword })
         Mail.send([body.email], "爱发布密码重置邮件", `您的密码已重置${newPassword}`)
         ctx.body = responseWrapper("密码已重置,并通过邮件发送到您的邮箱")
     }

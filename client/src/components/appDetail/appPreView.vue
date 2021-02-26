@@ -129,7 +129,7 @@
           }
           this.appVersionInfo = res.data.version
           this.appBaseData = res.data.app
-          let releaseDate = new Date(this.appVersionInfo.uploadAt)
+          let releaseDate = new Date(this.appVersionInfo.uploadTime)
           this.downloadUrl = `${window.origin}${this.$route.fullPath}`
           this.platformStr = res.data.app.platform
           this.appVersionInfo.creatDateStr = `${releaseDate.getFullYear()}-${releaseDate.getMonth() + 1}-${releaseDate.getDate()}`
@@ -149,7 +149,7 @@
       clickDownLoadBtn() {
         if (this.isIos) {
           const a = document.createElement('a')
-//            `itms-services://?action=download-manifest&url=${this.axios.defaults.baseURL}api/plist/${this.appBaseData._id}/${this.appVersionInfo._id}`
+//            `itms-services://?action=download-manifest&url=${this.axios.defaults.baseURL}api/plist/${this.appBaseData.id}/${this.appVersionInfo.id}`
           a.setAttribute('href', this.appVersionInfo.installUrl)
           a.click()
         } else {
@@ -167,7 +167,7 @@
               if (result.done) {
                 console.log('下载完成')
                 console.log(_this.appBaseData)
-                AppResourceApi.downloadedCount(_this.appBaseData._id, _this.appVersionInfo._id).then(() => {
+                AppResourceApi.downloadedCount(_this.appBaseData.id, _this.appVersionInfo.id).then(() => {
                 }, reject => {
 
                 })

@@ -147,7 +147,7 @@ export default {
       this.dissolveShow = true
     },
     modifyTeamName() {
-      let teamId = useMgr.getUserTeam()._id
+      let teamId = useMgr.getUserTeam().id
       let name = this.editName
       TeamApi.updateTeamName(teamId, name).then(resp => {
         this.$message({
@@ -164,7 +164,7 @@ export default {
       this.editing = false
     },
     dissolveTeam() {
-      let teamId = useMgr.getUserTeam()._id
+      let teamId = useMgr.getUserTeam().id
       TeamApi.dissolveTeam(teamId).then(resp => {
         this.$message({
           type: resp.success ? 'success' : 'error',
@@ -202,9 +202,9 @@ export default {
     itemSelected(index) {
       this.currentIndex = index
       let cuurentId = useMgr.getUserId()
-      let userId = this.members[this.currentIndex]._id
+      let userId = this.members[this.currentIndex].id
       let owner = this.members.filter(member => {
-        return member._id === useMgr.getUserId()
+        return member.id === useMgr.getUserId()
       })[0].role
       if (cuurentId !== userId || owner !== 'owner') {
         this.stateUpdate()
@@ -214,8 +214,8 @@ export default {
     deleteMember() {
       this.dialogVisible = false
       if (this.currentIndex >= 0) {
-        let teamId = useMgr.getUserTeam()._id
-        let userId = this.members[this.currentIndex]._id
+        let teamId = useMgr.getUserTeam().id
+        let userId = this.members[this.currentIndex].id
         TeamApi.deleteMembers(teamId, userId).then(resp => {
           this.$message({
             message: resp.message,
@@ -230,10 +230,10 @@ export default {
     stateUpdate() {
       if (this.currentIndex >= 0) {
         let owner = this.members.filter(member => {
-          return member._id === useMgr.getUserId()
+          return member.id === useMgr.getUserId()
         })[0].role
         let name = this.members[this.currentIndex].username
-        let isSelf = useMgr.getUserId() === this.members[this.currentIndex]._id
+        let isSelf = useMgr.getUserId() === this.members[this.currentIndex].id
         switch (owner) {
           case 'owner':
             this.message = '确定要移除' + name + '吗?'
@@ -253,7 +253,7 @@ export default {
       }
     },
     request(emailList) {
-      let teamId = useMgr.getUserTeam()._id
+      let teamId = useMgr.getUserTeam().id
       TeamApi.inviteMembers(teamId, emailList).then(resp => {
         if (resp.success) {
           this.$message({
@@ -265,10 +265,10 @@ export default {
       })
     },
     requestMembers() {
-      let teamId = useMgr.getUserTeam()._id
+      let teamId = useMgr.getUserTeam().id
       TeamApi.getTeamMembers(teamId).then(resp => {
         this.teamName = resp.data.name
-        this.teamId = resp.data._id
+        this.teamId = resp.data.id
         this.members = resp.data.members
       })
     },
@@ -293,7 +293,7 @@ export default {
   watch: {
     members() {
       let itemArr = this.members.filter(member => {
-        return member._id === useMgr.getUserId()
+        return member.id === useMgr.getUserId()
       })
       if (itemArr && itemArr.length > 0) {
         this.isOwner = itemArr[0].role === 'owner'

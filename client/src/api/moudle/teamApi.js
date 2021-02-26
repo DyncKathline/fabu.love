@@ -35,6 +35,7 @@ export function dissolveTeam(teamId) {
 export function modifyRole(teamId, memberId, role) {
   let url = `api/team/${teamId}/role`
   let param = {
+    'teamId': teamId,
     'memberId': memberId,
     'role': role
   }

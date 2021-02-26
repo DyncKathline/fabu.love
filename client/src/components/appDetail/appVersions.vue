@@ -6,7 +6,7 @@
           <div class="top">
             <p class="title">{{item}}</p>
           </div>
-          <div class="subWrapper" v-if="appInfo._id">
+          <div class="subWrapper" v-if="appInfo.id">
             <p class="subtitle">{{subTitleArr[index]}}</p>
           </div>
         </li>
@@ -23,6 +23,7 @@
       <!--内容-->
       <el-table
         :data="dataArr"
+        @row-click="rowClick"
         style="width: 100%;box-sizing: border-box"
         stripe
         class="version-table"
@@ -48,7 +49,7 @@
           width="150"
         >
           <template slot-scope="scope">
-            <p v-html="getCreatTime(scope.row.uploadAt)"></p>
+            <p v-html="getCreatTime(scope.row.uploadTime)"></p>
           </template>
         </el-table-column>
         <el-table-column
@@ -158,12 +159,21 @@
     },
     methods: {
       getAppVersionListData() {
-        AppResourceApi.getAppVersionList(this.userteam._id, this.appInfo._id, this.currentPage).then((res) => {
+        AppResourceApi.getAppVersionList(this.userteam.id, this.appInfo.id, this.currentPage).then((res) => {
           console.log(res)
           this.dataArr = res.data
         }, reject => {
 
         })
+      },
+      rowClick(row, event, column) {
+        console.log(row, event, column)
+        const {href} = this.$router.resolve({
+          name: 'AppPreView',
+          path: '/',
+          params: { 'id': row.appId }
+        })
+        window.open(href, '_blank')
       },
       // 下载应用
       clickDownLoad(item) {
@@ -180,7 +190,7 @@
           reader.read().then(function processResult(result) {
             if (result.done) {
               console.log('下载完成')
-              AppResourceApi.downloadedCount(_this.appInfo._id, item._id).then(() => {
+              AppResourceApi.downloadedCount(_this.appInfo.id, item.id).then(() => {
               }, reject => {
               })
               return
@@ -207,7 +217,7 @@
       clickDelect(item) {
         this.$confirm('确认删除？')
           .then(() => {
-            AppResourceApi.delectAppVersion(this.userteam._id, this.appInfo._id, item._id).then((res) => {
+            AppResourceApi.delectAppVersion(this.userteam.id, this.appInfo.id, item.id).then((res) => {
               this.$message.success('删除成功')
               var index = this.dataArr.indexOf(item)
               this.dataArr.splice(index, 1)
@@ -219,10 +229,10 @@
       },
       // 发布应用
       releaseApp(item) {
-        AppResourceApi.releaseApp(this.userteam._id, this.appInfo._id, item._id, item.versionCode, true).then((res) => {
+        AppResourceApi.releaseApp(this.userteam.id, this.appInfo.id, item.id, item.versionCode, true).then((res) => {
           this.$message.success(res.message)
 
-          this.appInfo.releaseVersionId = item._id
+          this.appInfo.releaseVersionId = item.id
 
           this.getAppVersionListData()
         }, reject => {
@@ -230,7 +240,7 @@
         })
       },
       getCreatTime(date) {
-        console.log(date)
+        // console.log(date)
         let releaseDate = new Date(date)
         return `${releaseDate.getFullYear()}-${releaseDate.getMonth() + 1}-${releaseDate.getDate()} ${releaseDate.getHours()}:${releaseDate.getMinutes()}:${releaseDate.getSeconds()}`
       },
@@ -246,7 +256,7 @@
       },
       getAllowDownLoadCount(item) {
         // 灰度版本
-        if (this.appInfo.grayReleaseVersionId && this.appInfo.grayReleaseVersionId === item._id) {
+        if (this.appInfo.grayReleaseVersionId && this.appInfo.grayReleaseVersionId === item.id) {
           if (this.appInfo.grayStrategy && this.appInfo.grayStrategy.downloadCountLimit) {
             return `${item.downloadCount}/${this.appInfo.grayStrategy.downloadCountLimit}`
           } else {
@@ -276,9 +286,9 @@
       },
       getIconClass(item) {
         // 灰度版本
-        if (this.appInfo.grayReleaseVersionId && this.appInfo.grayReleaseVersionId === item._id) {
+        if (this.appInfo.grayReleaseVersionId && this.appInfo.grayReleaseVersionId === item.id) {
             return 'version-table-one-gray'
-        } else if (this.appInfo.releaseVersionId && this.appInfo.releaseVersionId === item._id) {
+        } else if (this.appInfo.releaseVersionId && this.appInfo.releaseVersionId === item.id) {
           return 'version-table-one-lighting'
         }
       },

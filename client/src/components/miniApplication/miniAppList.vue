@@ -75,7 +75,7 @@
     },
     methods: {
       loadAppList() {
-        MiniApi.getAppList(this.currentTeam._id)
+        MiniApi.getAppList(this.currentTeam.id)
           .then(response => {
             this.dataList = []
             this.dataList = response.data.reverse()
@@ -110,7 +110,7 @@
           'name': this.miniAppInfo.name,
           'appId': this.miniAppInfo.appId,
           'appSecret': this.miniAppInfo.appSecret,
-          'teamId': this.currentTeam._id
+          'teamId': this.currentTeam.id
         }
         MiniApi.create(body).then(response => {
           this.showAddAppContent = false
@@ -122,7 +122,7 @@
       gotoAppDetail(item) {
         this.$router.push({
           name: 'MiniAppDetail',
-          params: {appId: item._id}
+          params: {appId: item.id}
         })
         this.bus.$emit('miniAppDetail')
       }

@@ -63,8 +63,8 @@ export default {
       this.showMenu = false
     },
     roleModify(value) {
-      let teamId = useMgr.getUserTeam()._id
-      let memberId = this.value._id
+      let teamId = useMgr.getUserTeam().id
+      let memberId = this.value.id
       let role = value
       TeamApi.modifyRole(teamId, memberId, role).then(resp => {
         this.$message({
@@ -80,12 +80,12 @@ export default {
     valueChanged() {
       // alert('changed')
       let randomNumber = Math.floor(Math.random() * Math.floor(4))
-      this.isSelf = useMgr.getUserId() === this.value._id
+      this.isSelf = useMgr.getUserId() === this.value.id
       // alert(this.isSelf ? '是自己' : '不是自己')
-      this.isManager = useMgr.getUserTeam().role !== 'guest'
+      this.isManager = useMgr.getUserTeam().roleName !== 'guest'
       // alert(this.isManager ? '是管理者' : '不是管理者')
       this.isRole =
-        (this.isManager || this.isSelf) && this.value.role !== 'owner'
+        (this.isManager || this.isSelf) && this.value.roleName !== 'owner'
       this.color = [
         'header-background-red',
         'header-background-green',
@@ -100,7 +100,7 @@ export default {
       return this.value.username.substring(length - 1)
     },
     ownerString() {
-      switch (this.value.role) {
+      switch (this.value.roleName) {
         case 'owner':
           return '创建者'
         case 'manager':

@@ -1,30 +1,54 @@
-var fs = require("fs")
+// var fs = require("fs")
 var path = require("path")
 
 
-const common = {
+const config = {
     baseUrl: process.env.FABU_BASE_URL || "https://127.0.0.1:9898", //baseUrl应用请求的url地址,比如https://fabu.love
     port: process.env.FABU_PORT || "9898", //server运行的端口
     apiPrefix: 'api',
 
     fileDir: process.env.FABU_UPLOAD_DIR || path.join(__dirname, ".."), //上传文件的存放目录
     secret: process.env.FABU_SECRET || "secretsecret", //secret
-    dbUser: process.env.FABU_DBUSER || undefined, //数据库用户 (没有开启mongodb用户认证的可以不填写)
-    dbPass: process.env.FABU_DBPWD || undefined, //数据库密码 (没有开启mongodb用户认证的可以不填写)
-    dbName: process.env.FABU_DB_NAME || "fabulove", //数据库名称
-    dbHost: process.env.FABU_DB_HOST || "0.0.0.0", //数据库地址
-    dbPort: process.env.FABU_DB_PORT || "27017", //数据库端口
-    // dbUser: process.env.FABU_DBUSER || "root", //数据库用户 (没有开启mongodb用户认证的可以不填写)
-    // dbPass: process.env.FABU_DBPWD || "123456", //数据库密码 (没有开启mongodb用户认证的可以不填写)
-    // dbName: process.env.FABU_DB_NAME || "fabulove", //数据库名称
-    // dbHost: process.env.FABU_DB_HOST || "localhost", //数据库地址
-    // dbPort: process.env.FABU_DB_PORT || "3306", //数据库端口
+    mongodb: {
+        user: process.env.FABU_DBUSER || undefined, //数据库用户 (没有开启mongodb用户认证的可以不填写)
+        password: process.env.FABU_DBPWD || undefined, //数据库密码 (没有开启mongodb用户认证的可以不填写)
+        name: process.env.FABU_DB_NAME || "fabulove", //数据库名称
+        host: process.env.FABU_DB_HOST || "0.0.0.0", //数据库地址
+        port: process.env.FABU_DB_PORT || "27017", //数据库端口
+    },
 
-    redisHost: process.env.FABU_DB_HOST || "127.0.0.1",
-    redisPort: process.env.FABU_DB_HOST || "6379",
-    redisPwd: process.env.FABU_DB_HOST || "",
-    redisDB: process.env.FABU_DB_HOST || "0",
-    redisPrefix: process.env.FABU_DB_HOST || "kath",
+    sequelize: {
+        dialect: "mysql",
+        database: "fabulove",
+        host: "127.0.0.1",
+        port: 3306,
+        username: "root",
+        password: "123456",
+        query: { raw: true },
+        define: {
+            // 使用自己配置的表名，避免sequelize自动将表名转换为复数
+            freezeTableName: true,
+            // don't add the timestamp attributes (updatedAt, createdAt)
+            timestamps: false,
+            updatedAt: "updated_time",
+            createdAt: "created_time",
+            hooks: {
+                beforeValidate: function (obj) {
+                    const now = Date.now();
+                    obj.updated_time = now;
+                    obj.created_time = now;
+                }
+            }
+        }
+    },
+
+    redis: {
+        host: process.env.FABU_DB_HOST || "127.0.0.1",
+        port: process.env.FABU_DB_HOST || "6379",
+        password: process.env.FABU_DB_HOST || "",
+        db: process.env.FABU_DB_HOST || "0",
+        keyPrefix: process.env.FABU_DB_HOST || "kath",
+    },
 
     emailService: process.env.FABU_EMAIL_SERVICE || "qq", //邮件相关配置 用于找回密码和邀请团队成员发送邮件
     emailUser: process.env.FABU_EMAIL_USER || "",
@@ -49,4 +73,4 @@ function boolConfig(str) {
 }
 
 
-export default common;
+module.exports = config;

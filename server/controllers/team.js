@@ -9,9 +9,12 @@ import {
     path,
     description
 } from '../swagger';
-import { User, userSchema } from "../model/user";
-import Message from "../model/message";
+const { Op } = require("sequelize");
+import User from "../model/user";
 import Team from "../model/team";
+import Teams from "../model/teams";
+import TeamMembers from "../model/team_members";
+import Message from "../model/message";
 import { responseWrapper } from "../helper/util";
 import Fawn from "fawn";
 import mongoose from "mongoose";
@@ -41,29 +44,30 @@ module.exports = class TeamRouter {
     @tag
     @body(teamCreateSchema)
     static async createTeam(ctx, next) {
+        const { caches } = ctx;
         var user = ctx.state.user.data;
         var { body } = ctx.request;
         var team = new Team(body);
-        team.creatorId = user._id;
+        team.creatorId = user.id;
         team.members = [{
-            _id: user._id,
+            id: user.id,
             username: user.username,
             email: user.email,
-            role: "owner"
+            role: caches.Teams[1].name//"owner"
         }]
 
         var task = Fawn.Task();
         var result = await task
             .save(team)
             .update(User, {
-                _id: user._id
+                id: user.id
             }, {
                 $push: {
                     teams: {
-                        _id: team._id,
+                        id: team.id,
                         name: team.name,
                         icon: team.icon,
-                        role: "owner"
+                        role: caches.Teams[1].name//"owner"
                     }
                 }
             })
@@ -84,31 +88,31 @@ module.exports = class TeamRouter {
     static async dissolveTeam(ctx, next) {
         const { id } = ctx.validatedParams;
         var user = ctx.state.user.data;
-        var team = await Team.findOne({ '_id': id, 'members.username': user.username, 'members.role': 'owner' });
+        var team = await Team.findOne({ 'id': id, 'members.username': user.username, 'members.role': 'owner' });
         if (!team) {
             throw new Error("该团队不存在或者您没有权限解散该团队")
         }
 
-        if (team._id == user._id) {
+        if (team.id == user.id) {
             throw new Error("用户默认团队无法解散")
         }
 
         var membersId = []
         if (team.members.length > 0) {
             for (var m of team.members) {
-                membersId.push(m._id)
+                membersId.push(m.id)
             }
         }
 
         if (membersId.length > 0) {
-            await User.update({ _id: { $in: membersId } }, {
+            await User.update({ id: { $in: membersId } }, {
                 $pull: {
-                    teams: { _id: team._id }
+                    teams: { id: team.id }
                 }
             })
         }
 
-        await Team.deleteOne({ _id: team._id })
+        await Team.deleteOne({ id: team.id })
 
         ctx.body = responseWrapper(true, "团队已解散")
     }
@@ -124,26 +128,25 @@ module.exports = class TeamRouter {
     })
     @body({ memberId: { type: 'string', required: true }, role: { type: 'string', required: true, description: "传入manager或者guest" } })
     static async changeMemberRole(ctx, next) {
-        var { teamId } = ctx.validatedParams;
-        var user = ctx.state.user.data;
-        var body = ctx.request.body
-        var team = validator.userInTeamIsManager(user._id, teamId)
+        const { teamId } = ctx.validatedParams;
+        const user = ctx.state.user.data;
+        const body = ctx.request.body;
+        const team = validator.userInTeamIsManager(user.id, teamId);
         if (!team) {
-            throw new Error("没有权限修改该用户角色")
+            // throw new Error("没有权限修改该用户角色")
+            ctx.body = responseWrapper(false, "没有权限修改该用户角色");
+            return;
         }
 
         if (body.role != 'manager' && body.role != 'guest') {
-            throw new Error("请传入正确的角色参数")
+            // throw new Error("请传入正确的角色参数")
+            ctx.body = responseWrapper(false, "请传入正确的角色参数");
+            return;
         }
-        await User.updateOne({ _id: body.memberId, 'teams._id': teamId }, {
-            $set: {
-                'teams.$.role': body.role
-            }
-        })
-
-        await Team.updateOne({ _id: teamId, 'members._id': body.memberId }, {
-            $set: {
-                'members.$.role': body.role
+        await Team.update({ 'role': body.role }, {
+            where: {
+                id: body.teamId,
+                creatorId: body.creatorId,
             }
         })
 
@@ -180,17 +183,17 @@ module.exports = class TeamRouter {
         }
 
         var team = await Team.findOne({
-            _id: teamId,
+            id: teamId,
             members: {
                 $elemMatch: {
-                    _id: user._id,
+                    id: user.id,
                     $or: [
                         { role: 'owner' },
                         { role: 'manager' }
                     ]
                 }
             },
-        }, "_id name members")
+        }, "id name members")
 
         if (!team) {
             throw new Error("团队不存在,或者您没有权限邀请用户加入")
@@ -212,7 +215,7 @@ module.exports = class TeamRouter {
                     return o.email == u.email
                 }))) {
                 teamList.push({
-                    _id: u.id,
+                    id: u.id,
                     username: u.username,
                     email: u.email,
                     role: body.role
@@ -231,13 +234,13 @@ module.exports = class TeamRouter {
 
         var task = Fawn.Task();
         var result = await task
-            .update(Team, { _id: teamId }, {
+            .update(Team, { id: teamId }, {
                 $addToSet: { members: { $each: teamList } }
             })
             .update(User, { email: { $in: emailList } }, {
                 $push: {
                     teams: {
-                        _id: teamId,
+                        id: teamId,
                         name: team.name,
                         icon: team.icon,
                         role: body.role
@@ -251,11 +254,11 @@ module.exports = class TeamRouter {
             var message = new Message();
             message.category = "INVITE";
             message.content = user.username + "邀请您加入" + team.name + "团队."
-            message.sender = user._id;
-            message.receiver = u._id;
+            message.sender = user.id;
+            message.receiver = u.id;
             // message.data = jwt.sign({
             //     data: {
-            //         teamId: team._id,
+            //         teamId: team.id,
             //         invited: userIdentifier
             //     },
             //     exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 7)
@@ -284,10 +287,10 @@ module.exports = class TeamRouter {
         var user = ctx.state.user.data;
         //如果传入的id和当前登录用户的id相等 表示是自己离开团队
         var team
-        if (userId === user._id) {
-            team = await userInTeam(user._id, id)
+        if (userId === user.id) {
+            team = await userInTeam(user.id, id)
         } else {
-            team = await userInTeamIsManager(user._id, id)
+            team = await userInTeamIsManager(user.id, id)
         }
 
         if (!team) {
@@ -295,13 +298,13 @@ module.exports = class TeamRouter {
         }
         var task = Fawn.Task();
         var result = await task
-            .update(team, { $pull: { members: { _id: userId } } })
+            .update(team, { $pull: { members: { id: userId } } })
             .update(User, {
-                _id: userId
+                id: userId
             }, {
                 $pull: {
                     teams: {
-                        _id: team._id,
+                        id: team.id,
                     }
                 }
             }).run({ useMongoose: true });
@@ -319,16 +322,63 @@ module.exports = class TeamRouter {
         }
     })
     static async getMembers(ctx, next) {
-        var { teamId } = ctx.validatedParams;
-        var user = ctx.state.user.data;
+        const { teamId } = ctx.validatedParams;
+        let user = ctx.state.user.data;
         //如果传入的id和当前登录用户的id相等 表示是自己离开团队
-        var team = await Team.findOne({
-            _id: teamId,
-        })
+        let team = await Team.findOne({
+            id: teamId,
+        });
+        let members = await TeamMembers.findAll({
+            where: {
+                teamId: teamId
+            }
+        });
+        let userIds = [];
+        let teamIds = [];
+        members.forEach(element => {
+            userIds.push(element.userId);
+            teamIds.push(element.teamId);
+        });
+        members = await User.findAll({
+            where: {
+                id: {
+                    [Op.in]:  userIds
+                }
+            },
+            attributes: { exclude: ['password'] }
+        });
+        const teams = await Team.findAll({
+            where: {
+                creatorId: {
+                    [Op.in]: teamIds
+                }
+            }
+        });
+        const teamTypes = await Teams.findAll();
+        teams.forEach(element => {
+            teamTypes.every(ele => {
+                if(ele.id == element.role) {
+                    element.roleName = ele.name;
+                    return false;
+                }
+            });
+        });
+        members.forEach(element => {
+            teams.every(ele => {
+                if(ele.creatorId == element.id) {
+                    element.role = ele.role;
+                    element.roleName = ele.roleName;
+                    return false;
+                }
+            });
+        });
+        team.members = members;
         if (!team) {
-            throw new Error("团队不存在")
+            // throw new Error("团队不存在")
+            ctx.body = responseWrapper(false, "团队不存在");
+        }else{
+            ctx.body = responseWrapper(team);
         }
-        ctx.body = responseWrapper(team)
     }
 
     @request('post', '/api/team/{teamId}/profile')
@@ -353,34 +403,34 @@ module.exports = class TeamRouter {
         var body = ctx.request.body
 
         var team = await Team.findOne({
-            _id: teamId,
+            id: teamId,
             members: {
                 $elemMatch: {
-                    _id: user._id,
+                    id: user.id,
                     $or: [
                         { role: 'owner' },
                         { role: 'manager' }
                     ]
                 }
             },
-        }, "_id members")
+        }, "id members")
 
         if (!team) {
             throw new Error("团队不存在或者您没有权限修改该信息")
         }
         await Team.updateOne({
-            _id: teamId,
+            id: teamId,
         }, { name: body.name })
 
         var membersId = []
         if (team.members.length > 0) {
             for (var m of team.members) {
-                membersId.push(m._id)
+                membersId.push(m.id)
             }
         }
 
         if (membersId.length > 0) {
-            await User.updateMany({ _id: { $in: membersId }, 'teams._id': teamId }, {
+            await User.updateMany({ id: { $in: membersId }, 'teams.id': teamId }, {
                 $set: {
                     'teams.$.name': body.name
                 }

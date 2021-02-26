@@ -2,29 +2,50 @@
 import router from './controller';
 import config from './config';
 
-const Koa = require('koa')
-const bodyParser = require('koa-bodyparser')
+const Koa = require('koa');
+const bodyParser = require('koa-bodyparser');
 // 导入controller middleware:
-const rest = require('./helper/rest')
+const rest = require('./helper/rest');
 const serve = require('koa-static');
-const cors = require('koa-cors')
-const koajwt = require('koa-jwt')
-const path = require('path')
-const fs = require('fs')
+const cors = require('koa-cors');
+const koajwt = require('koa-jwt');
+const path = require('path');
+const fs = require('fs');
 const send = require('koa-send');
-const mount = require('koa-mount')
+const mount = require('koa-mount');
 
-const app = new Koa()
+const app = new Koa();
+
+//挂载redis实例到ctx上
+const redis = require('./helper/redis');
+app.context.redis = redis;
+
+//挂载sequelize实例到ctx上
+const model = require('./model');
+app.context.model = model;
+function caches(ctx) {
+    return new Promise(async (resolve, reject) => {
+        let caches = {};
+        caches["IpType"] = await model.IpType.findAll();
+        caches["Status"] = await model.Status.findAll();
+        caches["UpdateMode"] = await model.UpdateMode.findAll();
+        caches["Teams"] = await model.Teams.findAll();
+        resolve(caches);
+    });
+}
+caches(app.context).then( res => {
+    app.context.caches = res;
+});
 
 import Varify from './helper/varify'
 import Helper from './helper/MiddleHelper'
 import { isNull, isUndefined } from 'util';
 
-var helper = new Helper()
+var helper = new Helper();
 
-app.use(cors())
-app.use(bodyParser())
-app.use(serve(path.resolve(config.fileDir)))
+app.use(cors());
+app.use(bodyParser());
+app.use(serve(path.resolve(config.fileDir)));
 app.use(serve(path.join(__dirname, '..', 'client/dist')));
 
 app.use(function (ctx, next) {
@@ -34,7 +55,7 @@ app.use(function (ctx, next) {
     } else {
         return next()
     }
-})
+});
 
 var middleware = koajwt({ secret: config.secret, debug: true }).unless({
     path: [
@@ -47,7 +68,7 @@ var middleware = koajwt({ secret: config.secret, debug: true }).unless({
         /\/api\/count\/.+/,
         /\/api\/app\/.+/
     ]
-})
+});
 
 app.use(async (ctx, next) => {
     return next().catch((err) => {
@@ -57,7 +78,7 @@ app.use(async (ctx, next) => {
             // 自定义返回结果
             ctx.status = 401;
             ctx.body = {
-                code: 401,
+                code: 0,
                 msg: err.message
             }
         } else {
@@ -77,15 +98,15 @@ app.use(async (ctx, next) => {
     } else {
         await next()
     }
-})
+});
 
 app.use(helper.skip(middleware).if((ctx) => {
     var key = ctx.request.headers['apikey']
     return !isUndefined(key)
-}))
+}));
 
-app.use(rest.restify())
-app.use(router.routes())
+app.use(rest.restify());
+app.use(router.routes());
 
 export default app.listen(config.port, () => {
     console.log(`App is listening on ${config.port}.`);

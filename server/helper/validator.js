@@ -1,4 +1,4 @@
-const App = require('../model/app_model')
+const App = require('../model/app')
 const Version = require('../model/version')
 const Team = require('../model/team')
 
@@ -15,12 +15,12 @@ function isEmail(str){
 
 
 async function appAndUserInTeam(appId,teamId,userId) {
-  var team = await Team.findOne({_id:teamId,members:{
+  var team = await Team.findOne({id:teamId,members:{
       $elemMatch:{
            id:userId
       }
-  },},"_id")
-  var app = await App.find({_id:appId,ownerId:team._id})
+  },},"id")
+  var app = await App.find({id:appId,ownerId:team.id})
   if (!app) {
       throw new Error("应用不存在或您不在该团队中")
   }else{
@@ -29,12 +29,12 @@ async function appAndUserInTeam(appId,teamId,userId) {
 }
 
 // async function userInTeam(appId,teamId,userId) {
-//   var team = await Team.findOne({_id:teamId,members:{
+//   var team = await Team.findOne({id:teamId,members:{
 //       $elemMatch:{
-//            _id:userId
+//            id:userId
 //       }
-//   },},"_id")
-//   var app = await App.findOne({_id:id,ownerId:team._id})
+//   },},"id")
+//   var app = await App.findOne({id:id,ownerId:team.id})
 //   if (!app) {
 //       throw new Error("应用不存在或您不在该团队中")
 //   }else{
@@ -43,24 +43,24 @@ async function appAndUserInTeam(appId,teamId,userId) {
 // }
 
 async function userInTeamIsManager(userId,teamId) {
-  var team = await Team.findOne({_id:teamId,members:{
+  var team = await Team.findOne({id:teamId,members:{
     $elemMatch:{
-         _id:userId,
+         id:userId,
          $or: [
             { role: 'owner' },
             { role: 'manager' }
         ]
     }
-  },},"_id")
+  },},"id")
   return team
 }
 
 async function userInTeam(userId,teamId) {
-  var team = await Team.findOne({_id:teamId,members:{
+  var team = await Team.findOne({id:teamId,members:{
       $elemMatch:{
-           _id:userId
+           id:userId
       }
-  },},"_id")
+  },},"id")
  
   return team
 }

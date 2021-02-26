@@ -15,7 +15,7 @@
           <div class="top">
             <p class="title">{{item}}</p>
           </div>
-          <div class="subWrapper" v-if="appInfo._id">
+          <div class="subWrapper" v-if="appInfo.id">
             <p class="subtitle">{{subTitleArr[index]}}</p>
           </div>
         </li>
@@ -56,7 +56,7 @@
       delectMiniApp(item) {
         this.$confirm('确认删除？')
           .then(_ => {
-            MiniApi.delectApp(this.team._id, this.appInfo._id).then((res) => {
+            MiniApi.delectApp(this.team.id, this.appInfo.id).then((res) => {
               this.$message.success('删除成功')
               this.$router.go(-1)
             }, reject => {

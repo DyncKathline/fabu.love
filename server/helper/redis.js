@@ -1,12 +1,12 @@
 const client = require('redis')
-import config from '../config';
+const { redis: redisConfig } = require('../config');
 
 const options = {
-	host: config.redisHost,
-	port: config.redisPort,
-	password: config.redisPwd,
-	db: config.redisDB,
-	keyPrefix: config.redisPrefix,
+	host: redisConfig.host,
+	port: redisConfig.port,
+	password: redisConfig.password,
+	db: redisConfig.db,
+	keyPrefix: redisConfig.keyPrefix,
 	retry_strategy: function (options) {
     // 重连机制
     if (options.error && options.error.code === "ECONNREFUSED") {

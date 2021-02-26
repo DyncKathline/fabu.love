@@ -69,7 +69,7 @@
           .then(_ => {
             let body = {
               appId: this.appId,
-              codeId: item._id
+              codeId: item.id
             }
             MiniApi.deleteQrCode(body).then((res) => {
               this.$message.success('删除成功')

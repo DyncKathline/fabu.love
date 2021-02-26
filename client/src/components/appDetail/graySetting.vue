@@ -90,7 +90,7 @@
 
         let ind = 0
         this.versionList.forEach((item, index) => {
-          if (this.appInfo.grayReleaseVersionId && this.appInfo.grayReleaseVersionId === item._id) {
+          if (this.appInfo.grayReleaseVersionId && this.appInfo.grayReleaseVersionId === item.id) {
             ind = index
           }
         })
@@ -145,12 +145,12 @@
             'downloadCountLimit': number
           },
           'version': {
-            'versionId': this.currentVersion._id,
+            'versionId': this.currentVersion.id,
             'versionCode': this.currentVersion.versionCode,
             'release': true
           }
         }
-        AppResourceApi.grayVersion(getUserTeam()._id, this.appInfo._id, body).then((res) => {
+        AppResourceApi.grayVersion(getUserTeam().id, this.appInfo.id, body).then((res) => {
           console.log(res)
           this.$message.success(res.message)
           this.$emit('graySettingSuccess')

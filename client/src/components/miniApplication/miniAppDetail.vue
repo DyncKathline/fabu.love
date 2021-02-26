@@ -3,7 +3,7 @@
       <!--头部-->
       <miniAppDetailHeader
         :appInfo="this.appInfo"
-        v-if="this.appInfo._id"
+        v-if="this.appInfo.id"
       >
       </miniAppDetailHeader>
 
@@ -80,7 +80,7 @@
     },
     methods: {
       getAppDetailData() {
-        MiniApi.getAppDetail(this.userteam._id, this.$route.params.appId).then((res) => {
+        MiniApi.getAppDetail(this.userteam.id, this.$route.params.appId).then((res) => {
           console.log(res)
           this.appInfo = res.data
           this.downloadCodeImageArray = this.appInfo.downloadCodeImage
@@ -106,7 +106,7 @@
           scene: this.qrCodeInfo.scene,
           page: this.qrCodeInfo.page,
           remark: this.qrCodeInfo.remark,
-          teamId: this.userteam._id
+          teamId: this.userteam.id
         }
         MiniApi.getQrCode(body).then((res) => {
           console.log(res)

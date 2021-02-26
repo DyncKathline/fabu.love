@@ -1,41 +1,38 @@
-const mongoose = require('../helper/db')
-const Schema = mongoose.Schema
-const ObjectId = Schema.ObjectId
+const app = require("sequelize");
+const sequelize = require('../helper/sequelize')
+app.model = sequelize;
+const { Op } = app;
 
-var userSchema = {
-    username: {
-        type: String,
-        index: true
-    },
-    password: {
-        type: String
-    },
-    email: {
-        type: String,
-        index: true
-    },
-    token: {
-        type: String
-    },
-    apiToken: {
-        type: String
-    },
-    teams: [{
-        _id: ObjectId,
-        name: String,
-        icon: String,
-        role: {
-            type: String,
-            enum: ["owner", "manager", "guest"]
-        }
-    }],
-    mobile: String,
-    qq: String,
-    company: String,
-    career: String
-}
+const model = require("../database/model/user")(app);
 
-module.exports = {
-    User: mongoose.model('User', new Schema(userSchema)),
-    userSchema: userSchema
-}
+//   model.login = (username) => {
+//     return model.findOne({
+//       where: {
+//         [Op.or]: [{ username }],
+//         deleted: 0
+//       }
+//     });
+//   };
+
+//   model.getList = (paging = { limit, offset }) => {
+//     // { count, rows }
+//     return model.findAndCountAll({
+//       ...paging,
+//       where: { deleted: 0 },
+//       attributes: {
+//         exclude: ["pwd", "salt", "deleted"]
+//       }
+//     });
+//   };
+
+//   model.getUserById = (id) => {
+//     return model.findOne({
+//       where: { id, deleted: 0 },
+//       attributes: {
+//         // 排除`id`字段
+//         exclude: ["pwd", "salt", "deleted"]
+//       }
+//     });
+//   };
+
+module.exports = model;

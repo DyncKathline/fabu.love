@@ -24,7 +24,7 @@ module.exports = class MessageRouter {
     var size = ctx.query.size || 10;
     var user = ctx.state.user.data;
 
-    var result = await Message.find({ receiver: user._id })
+    var result = await Message.find({ receiver: user.id })
       .limit(size)
       .skip(page * size);
     ctx.body = responseWrapper(result);
@@ -35,8 +35,8 @@ module.exports = class MessageRouter {
   @tag
   static async getMessageCount(ctx, next) {
     var user = ctx.state.user.data;
-    var count = await Message.count({ receiver: user._id });
-    var unread = await Message.count({ receiver: user._id, status: "unread" });
+    var count = await Message.count({ receiver: user.id });
+    var unread = await Message.count({ receiver: user.id, status: "unread" });
     ctx.body = responseWrapper({ total: count, unread: unread });
   }
 
@@ -45,7 +45,7 @@ module.exports = class MessageRouter {
   @tag
   static async markMessageRead(ctx, next) {
     var user = ctx.state.user.data;
-    var result = await Message.update({ receiver: user._id ,status:'unread'},{
+    var result = await Message.update({ receiver: user.id ,status:'unread'},{
         status: "hasread"
     });
     ctx.body = responseWrapper(true,'所有消息已标记已读');
@@ -62,7 +62,7 @@ module.exports = class MessageRouter {
     var page = ctx.query.page || 0;
     var size = ctx.query.size || 10;
     var user = ctx.state.user.data;
-    await Message.deleteMany({ receiver: user._id });
+    await Message.deleteMany({ receiver: user.id });
     ctx.body = responseWrapper(true, "消息已清空");
   }
 };

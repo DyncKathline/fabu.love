@@ -11,29 +11,30 @@ import {
     path as rpath
 } from '../swagger';
 import config from '../config';
-var Team = require('../model/team')
+const { Op } = require("sequelize");
+const Team = require('../model/team')
 const Version = require('../model/version')
-const App = require('../model/app_model')
-var multer = require('koa-multer');
-var fs = require('fs')
-var crypto = require('crypto')
-var path = require('path')
-var os = require('os')
-var mime = require('mime')
-var uuidV4 = require('uuid/v4')
-var etl = require('etl')
-var mkdirp = require('mkdirp')
+const App = require('../model/app')
+const multer = require('koa-multer');
+const fs = require('fs')
+const crypto = require('crypto')
+const path = require('path')
+const os = require('os')
+const mime = require('mime')
+const uuidV4 = require('uuid/v4')
+const etl = require('etl')
+const mkdirp = require('mkdirp')
 const AppInfoParser = require('app-info-parser')
 const { compose, maxBy, filter, get } = require('lodash/fp')
 
-var { writeFile, readFile, responseWrapper, exec } = require('../helper/util')
+const { writeFile, readFile, responseWrapper, exec } = require('../helper/util')
 
-var tempDir = path.join(config.fileDir, 'temp')
-var uploadDir = path.join(config.fileDir, 'upload')
+const tempDir = path.join(config.fileDir, 'temp')
+const uploadDir = path.join(config.fileDir, 'upload')
 
 createFolderIfNeeded(tempDir)
 
-var uploadPrefix = "upload";
+const uploadPrefix = "upload";
 
 function createFolderIfNeeded(path) {
     if (!fs.existsSync(path)) {
@@ -65,19 +66,33 @@ module.exports = class UploadRouter {
     @rpath({ teamId: { type: 'string', required: true } })
     @middlewares([upload.single('file')])
     static async upload(ctx, next) {
-        var file = ctx.req.file
+        const file = ctx.req.file;
         const { teamId } = ctx.validatedParams;
-        var team = await Team.findById(teamId)
-        if (!team) {
-            throw new Error("没有找到该团队")
-        }
-        var result = await parseAppAndInsertToDB(file, ctx.state.user.data, team);
-        await Version.updateOne({ _id: result.version._id }, {
-            released: result.app.autoPublish
+        const team = await Team.findOne({
+            where: {
+                id: teamId
+            }
         })
+        if (!team) {
+            ctx.body = responseWrapper(false, "没有找到该团队");
+            return;
+        }
+        const result = await parseAppAndInsertToDB(file, ctx.state.user.data, team);
+        if(result.status) {
+            // ctx.status = result.status;
+            ctx.body = responseWrapper(false, result.msg);
+            return;
+        }
+        await Version.update({
+            released: result.app.autoPublish
+        }, {
+            where: {
+                id: result.version.id
+            }
+        });
         if (result.app.autoPublish) {
-            await App.updateOne({ _id: result.app._id }, {
-                releaseVersionId: result.version._id,
+            await App.updateOne({ id: result.app.id }, {
+                releaseVersionId: result.version.id,
                 releaseVersionCode: result.version.versionCode
             })
         }
@@ -97,89 +112,123 @@ module.exports = class UploadRouter {
 }
 
 async function parseAppAndInsertToDB(file, user, team) {
-    var filePath = file.path
-    var parser;
+    let filePath = file.path;
+    let parser;
     if (path.extname(filePath) === ".ipa") {
-        parser = parseIpa
+        parser = parseIpa;
     } else if (path.extname(filePath) === ".apk") {
-        parser = parseApk
+        parser = parseApk;
     } else {
-        throw (new Error("文件类型有误,仅支持IPA或者APK文件的上传."))
+        // throw (new Error("文件类型有误,仅支持IPA或者APK文件的上传."));
+        return {
+            status: 408,
+            msg: '文件类型有误,仅支持IPA或者APK文件的上传.'
+        }
     }
 
     //解析ipa和apk文件
-    var info = await parser(filePath);
+    let info = await parser(filePath);
     // console.log('app info ----> ', info)
-    var fileName = info.bundleId + "_" + info.versionStr + "_" + info.versionCode
+    let fileName = info.bundleId + "_" + info.versionStr + "_" + info.versionCode;
 
     //解析icon图标
-    var icon = await extractor(info.icon, fileName, team);
+    let icon = await extractor(info.icon, fileName, team);
 
     //移动文件到对应目录
-    var fileRelatePath = path.join(team.id, info.platform)
-    createFolderIfNeeded(path.join(uploadDir, fileRelatePath))
-    var fileRealPath = path.join(uploadDir, fileRelatePath, fileName + path.extname(filePath))
+    let fileRelatePath = path.join(team.id + "", info.platform);
+    createFolderIfNeeded(path.join(uploadDir, fileRelatePath));
+    let fileRealPath = path.join(uploadDir, fileRelatePath, fileName + path.extname(filePath));
 
     //获取文件MD5值
-    var buffer = fs.readFileSync(filePath)
-    var fsHash = crypto.createHash('md5')
-    fsHash.update(buffer)
-    var filemd5 = fsHash.digest('hex')
+    let buffer = fs.readFileSync(filePath);
+    let fsHash = crypto.createHash('md5');
+    fsHash.update(buffer);
+    let filemd5 = fsHash.digest('hex');
 
     //异步保存问题（避免跨磁盘移动问题）
-    var readStream = fs.createReadStream(filePath)
-    var writeStream = fs.createWriteStream(fileRealPath)
-    readStream.pipe(writeStream)
+    let readStream = fs.createReadStream(filePath);
+    let writeStream = fs.createWriteStream(fileRealPath);
+    readStream.pipe(writeStream);
     readStream.on('end', function () {
-        fs.unlinkSync(filePath)
-    })
+        fs.unlinkSync(filePath);
+    });
 
-    info.downloadUrl = path.join(uploadPrefix, fileRelatePath, fileName + path.extname(filePath))
+    info.downloadUrl = path.join(uploadPrefix, fileRelatePath, fileName + path.extname(filePath));
 
-    var app = await App.findOne({ 'platform': info['platform'], 'bundleId': info['bundleId'], 'ownerId': team._id })
+    let app = await App.findOne({
+        where: {
+            'platform': info['platform'],
+            'bundleId': info['bundleId'],
+            'ownerId': team.id
+        }
+    });
+    const now = Date.now();
     if (!app) {
         info.creator = user.username;
-        info.creatorId = user._id;
+        info.creatorId = user.id;
         info.icon = path.join(uploadPrefix, icon.fileName);
         info.shortUrl = Math.random().toString(36).substring(2, 5) + Math.random().toString(36).substring(2, 5);
-        app = new App(info)
-        app.ownerId = team._id;
+        app = Object.assign({}, info);
+        app.appId = uuidV4().replace(/-/g, "");
+        app.ownerId = team.id;
         app.currentVersion = info.versionCode;
-        await app.save();
+        app.createTime = now;
+        app.updateTime = now;
+        const { id } = await App.create(app);
+
         info.uploader = user.username;
-        info.uploaderId = user._id;
+        info.uploaderId = user.id;
         info.size = fs.statSync(filePath).size;
-        var version = Version(info);
+
+        let version = Object.assign({}, info);
         version.md5 = filemd5;
-        version.appId = app._id;
+        version.appId = app.appId;
+        version.uploadTime = now;
         if (app.platform == 'ios') {
             version.installUrl = mapInstallUrl(app.id, version.id);
         } else {
             version.installUrl = info.downloadUrl;
         }
-        await version.save();
+        const { id: versionId } = await Version.create(version);
         return { 'app': app, 'version': version };
     }
-    var version = await Version.findOne({ appId: app.id, versionCode: info.versionCode })
+    let version = await Version.findOne({
+        where: {
+            appId: app.id,
+            versionCode: info.versionCode
+        }
+    });
     if (!version) {
         info.uploader = user.username;
-        info.uploaderId = user._id;
-        info.size = fs.statSync(filePath).size
-        var version = Version(info)
-        version.appId = app._id;
-        version.md5 = filemd5
+        info.uploaderId = user.id;
+        info.icon = path.join(uploadPrefix, icon.fileName);
+        info.size = fs.statSync(filePath).size;
+
+        let version = Object.assign({}, info);
+        version.appId = app.appId;
+        version.md5 = filemd5;
+        version.uploadTime = now;
         if (app.platform == 'ios') {
-            version.installUrl = mapInstallUrl(app.id, version.id)
+            version.installUrl = mapInstallUrl(app.id, version.id);
         } else {
-            version.installUrl = `${config.baseUrl}/${info.downloadUrl}`
+            version.installUrl = `${config.baseUrl}/${info.downloadUrl}`;
         }
-        await version.save()
-        return { 'app': app, 'version': version }
+        const { id: versionId } = await Version.create(version);
+        
+        const { id } = await App.update({
+            currentVersion: info.versionCode
+        }, {
+            where: {
+                appId: version.appId
+            }
+        });
+
+        return { 'app': app, 'version': version };
     } else {
-        let err = Error()
-        err.code = 408
-        err.message = '当前版本已存在'
-        throw err
+        return {
+            status: 408,
+            msg: '当前版本已存在'
+        }
     }
 }
 
@@ -274,13 +323,13 @@ function parseApk(filename) {
 ///解析apk or ipa icon
 function extractor(imgData, guid, team) {
     return new Promise((resolve, reject) => {
-        var dir = path.join(uploadDir, team.id, "icon")
-        var realPath = path.join(team.id, "icon", '/{0}_a.png'.format(guid))
+        let dir = path.join(uploadDir, team.id + "", "icon")
+        let realPath = path.join(team.id + "", "icon", '/{0}_a.png'.format(guid))
         createFolderIfNeeded(dir)
-        var tempOut = path.join(uploadDir, realPath)
+        let tempOut = path.join(uploadDir, realPath)
 
-        var base64Data = imgData.replace(/^data:image\/\w+;base64,/, "");
-        var dataBuffer = new Buffer(base64Data, 'base64');
+        let base64Data = imgData.replace(/^data:image\/\w+;base64,/, "");
+        let dataBuffer = new Buffer(base64Data, 'base64');
         fs.writeFile(tempOut, dataBuffer, function (err) {
             if (err) {
                 resolve({ 'success': false, fileName: realPath })

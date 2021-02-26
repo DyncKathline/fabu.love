@@ -60,7 +60,7 @@
           'installPwd': this.installPwd,
           'autoPublish': this.pulishType === '手动发布' ? 0 : 1
         }
-        AppResourceApi.updateAppSetting(getUserTeam()._id, this.appInfo._id, body).then((res) => {
+        AppResourceApi.updateAppSetting(getUserTeam().id, this.appInfo.id, body).then((res) => {
             if (res.success) {
               this.$message.success(res.message)
             }

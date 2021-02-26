@@ -16,9 +16,12 @@ import fpath from 'path';
 import mustache from 'mustache';
 import _ from 'lodash'
 
-const App = require('../model/app_model')
-const Version = require('../model/version')
-const Team = require('../model/team')
+const { Op } = require("sequelize");
+const App = require('../model/app');
+const Version = require('../model/version');
+const Team = require('../model/team');
+const GrayStrategy = require('../model/gray_strategy');
+const AppDownload = require('../model/app_download');
 
 const tag = tags(['AppResource']);
 
@@ -62,22 +65,26 @@ var appProfile = {
 module.exports = class AppRouter {
     @request('get', '/api/apps/{teamId}')
     @summary("获取团队下App列表")
-        // @query(
-        //     {
-        //     page:{type:'number',default:0,description:'分页页码(可选)'},
-        //     size:{type:'number',default:10,description:'每页条数(可选)'}
-        // })
+    // @query(
+    //     {
+    //     page:{type:'number',default:0,description:'分页页码(可选)'},
+    //     size:{type:'number',default:10,description:'每页条数(可选)'}
+    // })
     @path({ teamId: { type: 'string', description: '团队id' } })
     @tag
     static async getApps(ctx, next) {
         // var page = ctx.query.page || 0
         // var size = ctx.query.size || 10
-        var user = ctx.state.user.data;
-        var { teamId } = ctx.validatedParams;
+        const user = ctx.state.user.data;
+        const { teamId } = ctx.validatedParams;
 
-        var result = await App.find({ 'ownerId': teamId || user.id })
-            // .limit(size).skip(page * size)
-        ctx.body = responseWrapper(result)
+        const result = await App.findAll({
+            where: {
+                [Op.or]: [{ 'ownerId': teamId || user.id }]
+            }
+        });
+        // .limit(size).skip(page * size)
+        ctx.body = responseWrapper(result);
     }
 
     @request('get', '/api/apps/{teamId}/{id}')
@@ -88,12 +95,74 @@ module.exports = class AppRouter {
         id: { type: 'string', description: '应用id' }
     })
     static async getAppDetail(ctx, next) {
-        var user = ctx.state.user.data
-        var { teamId, id } = ctx.validatedParams;
+        const { caches } = ctx;
+        const user = ctx.state.user.data;
+        const { teamId, id } = ctx.validatedParams;
         //todo: 这里其实还要判断该用户在不在team中
         //且该应用也在team中,才有权限查看
-        var app = await App.findById(id)
-        ctx.body = responseWrapper(app)
+        const app = await App.findOne({
+            where: {
+                id: id
+            }
+        });
+        if(app.grayStrategy == 0) {
+            const ipTypeObj = await caches.IpType.filter((value) => {
+                return value.id == 1;
+            });
+            const updateModeObj = await caches.UpdateMode.filter((value) => {
+                return value.id == 1;
+            });
+            app.grayStrategy = {
+                id: 0,
+                ipType: 1,
+                ipTypeName: ipTypeObj.length > 0 ? ipTypeObj[0].name : "",
+                ipList: [],
+                downloadCountLimit: 0,
+                updateMode: 1,
+                updateModeName: updateModeObj.length > 0 ? updateModeObj[0].name : ""
+            };
+        }else{
+            const grayStrategy = await GrayStrategy.findOne({
+                where: {
+                    id: app.grayStrategy
+                }
+            });
+            const ipTypeObj = await caches.IpType.filter((value) => {
+                return value.id == grayStrategy.ipType;
+            });
+            const updateModeObj = await caches.UpdateMode.filter((value) => {
+                return value.id == grayStrategy.updateMode;
+            });
+            app.grayStrategy = {
+                id: 0,
+                ipType: grayStrategy.ipType,
+                ipTypeName: ipTypeObj.length > 0 ? ipTypeObj[0].name : "",
+                ipList: grayStrategy.ipList.join(),
+                downloadCountLimit: grayStrategy.downloadCountLimit,
+                updateMode: grayStrategy.updateMode,
+                updateModeName: updateModeObj.length > 0 ? updateModeObj[0].name : ""
+            };
+            // const appDownload = await AppDownload.findAndCountAll({
+            //     where: {
+            //         appId: app.appId
+            //     },
+            //     attributes: ['data']
+            // });
+            // app.totalDownloadCount = appDownload.length;
+            // let now = new Date().toDateString();
+            // const todayAppDownload = appDownload.filter((value) =>{
+            //     return new Date(value.data).toDateString === now;
+            // });
+            // app.todayDownloadCount = {
+            //     date: Date.now(),
+            //     count: todayAppDownload.length
+            // }
+        }
+        app.todayDownloadCount = {
+            date: Date.now(),
+            count: app.todayDownloadCount
+        };
+        ctx.body = responseWrapper(app);
     }
 
     @request('delete', '/api/apps/{teamId}/{id}')
@@ -104,27 +173,40 @@ module.exports = class AppRouter {
         id: { type: 'string', description: '应用id' }
     })
     static async deleteApp(ctx, next) {
-        var user = ctx.state.user.data
-        var { teamId, id } = ctx.validatedParams;
-        var team = await Team.findOne({
-            _id: teamId,
-            members: {
-                $elemMatch: {
-                    username: user.username,
-                    $or: [
-                        { role: 'owner' },
-                        { role: 'manager' }
-                    ]
-                }
+        const user = ctx.state.user.data;
+        const { teamId, id } = ctx.validatedParams;
+        const team = await Team.findOne({
+            where: {
+                id: teamId,
+                creatorId: user.id
             }
-        })
-        var app = await App.findOne({ _id: id, ownerId: team._id })
-        if (!app) {
-            throw new Error("应用不存在或您没有权限查询该应用")
+        });
+        if (!team) {
+            ctx.body = responseWrapper(false, '您没有权限查询该应用');
+            return;
+        } else {
+            if (team.role != 1 || team.role != 2) {
+                ctx.body = responseWrapper(false, '您的权限不足');
+                return;
+            }
         }
-        await Version.deleteMany({ appId: app.id })
-        await App.deleteOne({ _id: app.id })
-        ctx.body = responseWrapper(true, "应用已删除")
+        const app = await App.findOne({
+            where: {
+                id: id,
+                ownerId: team.id
+            }
+        });
+        if (!app) {
+            ctx.body = responseWrapper(false, '应用不存在');
+            return;
+        }
+        await Version.destroy({
+            where: {
+                appId: app.id
+            }
+        });
+        await App.deleteOne({ id: app.id });
+        ctx.body = responseWrapper(true, "应用已删除");
     }
 
     @request('get', '/api/apps/{teamId}/{id}/versions')
@@ -139,23 +221,35 @@ module.exports = class AppRouter {
     })
     @tag
     static async getAppVersions(ctx, next) {
-        var user = ctx.state.user.data
-        var { teamId, id } = ctx.validatedParams
-        var { page, size } = ctx.query
-        var team = await Team.find({
-            _id: teamId,
-            members: {
-                $elemMatch: { username: user.username }
+        const user = ctx.state.user.data;
+        const { teamId, id } = ctx.validatedParams;
+        const { page, size } = ctx.query;
+        const team = await Team.findOne({
+            where: {
+                id: teamId
             }
-        })
-        var app = await App.find({ _id: id, ownerId: team._id });
+        });
+        const app = await App.findOne({
+            where: {
+                id: id,
+                ownerId: team.id
+            }
+        });
         if (!app) {
-            throw new Error("应用不存在或您没有权限查询该应用")
+            ctx.body = responseWrapper(false, '应用不存在或您没有权限查询该应用');
+            return;
         }
-        var versions = await Version.find({ appId: id })
-            .sort({ '_id' : -1 })//1为升序，-1为降序
-            .limit(size).skip(page * size)
-        ctx.body = responseWrapper(versions)
+        const versions = await Version.findAll({
+            where: {
+                appId: app.appId
+            },
+            order: [
+                ['uploadTime', 'DESC']
+            ],
+            offset: page,
+            limit: size
+        });
+        ctx.body = responseWrapper(versions);
     }
 
     @request('get', '/api/apps/{teamId}/{id}/versions/{versionId}')
@@ -169,22 +263,24 @@ module.exports = class AppRouter {
     static async getAppVersionDetail(ctx, next) {
         //todo: 好像暂时用不上
 
-        var user = ctx.state.user.data
-        var { teamId, id, versionId } = ctx.validatedParams
-        var team = await Team.find({
-            _id: teamId,
+        const user = ctx.state.user.data;
+        const { teamId, id, versionId } = ctx.validatedParams;
+        const team = await Team.findOne({
+            id: teamId,
             members: {
                 $elemMatch: { username: user.username }
             }
-        })
+        });
         if (!team) {
-            throw new Error("没有权限查看该应用")
+            ctx.body = responseWrapper(false, "没有权限查看该应用");
+            return;
         }
-        var version = await Version.findById(versionId)
+        const version = await Version.findById(versionId);
         if (!version) {
-            throw new Error("应用不存在")
+            ctx.body = responseWrapper(false, "应用不存在");
+            return;
         }
-        ctx.body = responseWrapper(version)
+        ctx.body = responseWrapper(version);
     }
 
     @request('delete', '/api/apps/{teamId}/{id}/versions/{versionId}')
@@ -196,23 +292,40 @@ module.exports = class AppRouter {
         versionId: { type: 'string', description: '版本id' }
     })
     static async deleteAppVersion(ctx, next) {
-        var user = ctx.state.user.data
-        var { teamId, id, versionId } = ctx.validatedParams;
-        var app = await appInTeamAndUserIsManager(id, teamId, user._id)
-        var result = await Version.deleteOne({ _id: versionId })
+        const user = ctx.state.user.data;
+        const { teamId, id, versionId } = ctx.validatedParams;
+        const app = await appInTeamAndUserIsManager(id, teamId, user.id);
+        if(app.status) {
+            // ctx.status = result.status;
+            ctx.body = responseWrapper(false, app.msg);
+            return;
+        }
+        const result = await Version.destroy({
+            where: {
+                id: versionId
+            }
+        });
         if (versionId == app.releaseVersionId) {
-            await App.updateOne({ _id: app._id }, {
-                releaseVersionId: null
-            })
+            await App.update({
+                releaseVersionId: 0
+            }, {
+                where: {
+                    id: app.id
+                }
+            });
         }
 
         if (versionId == app.grayReleaseVersionId) {
-            await App.updateOne({ _id: app._id }, {
-                grayReleaseVersionId: null,
-                grayStrategy: null
-            })
+            await App.update({
+                grayReleaseVersionId: 0,
+                grayStrategy: 0
+            }, {
+                where: {
+                    id: app.id
+                }
+            });
         }
-        ctx.body = responseWrapper(true, "版本已删除")
+        ctx.body = responseWrapper(true, "版本已删除");
     }
 
     @request('post', '/api/apps/{teamId}/{id}/updateMode')
@@ -224,21 +337,34 @@ module.exports = class AppRouter {
     })
     @path({ teamId: { type: 'string', require: true }, id: { type: 'string', require: true } })
     static async setUpdateMode(ctx, next) {
-        var user = ctx.state.user.data;
-        var body = ctx.body;
-        var { teamId, id } = ctx.validatedParams;
-        var app = await appInTeamAndUserIsManager(id, teamId, user._id)
+        const user = ctx.state.user.data;
+        const body = ctx.body;
+        const { teamId, id } = ctx.validatedParams;
+        const app = await appInTeamAndUserIsManager(id, teamId, user.id)
+        if(app.status) {
+            // ctx.status = result.status;
+            ctx.body = responseWrapper(false, app.msg);
+            return;
+        }
         if (body.versionId) {
             //更新版本策略
-            await Version.findByIdAndUpdate(versionId, {
+            await Version.update({
                 updateMode: body.updateMode
-            })
+            }, {
+                where: {
+                    appId: versionId
+                }
+            });
         } else {
-            await App.findByIdAndUpdate(id, {
+            await App.update({
                 updateMode: body.updateMode
-            })
+            }, {
+                where: {
+                    id
+                }
+            });
         }
-        ctx.body = responseWrapper(true, "版本发布策略设置成功")
+        ctx.body = responseWrapper(true, "版本发布策略设置成功");
     }
 
     @request('post', '/api/apps/{teamId}/{id}/profile')
@@ -247,16 +373,18 @@ module.exports = class AppRouter {
     @body(appProfile)
     @path({ teamId: { type: 'string', required: true }, id: { type: 'string', required: true } })
     static async setAppProfile(ctx, next) {
-        var user = ctx.state.user.data;
-        var body = ctx.request.body;
-        var { teamId, id } = ctx.validatedParams;
+        const user = ctx.state.user.data;
+        const body = ctx.request.body;
+        const { teamId, id } = ctx.validatedParams;
 
-        var app = await appInTeamAndUserIsManager(id, teamId, user._id)
-        if (!app) {
-            throw new Error("应用不存在或您没有权限执行该操作")
+        const app = await appInTeamAndUserIsManager(id, teamId, user.id);
+        if(app.status) {
+            // ctx.status = result.status;
+            ctx.body = responseWrapper(false, app.msg);
+            return;
         }
-        await App.findByIdAndUpdate(id, body)
-        ctx.body = responseWrapper(true, "应用设置已更新")
+        await App.findByIdAndUpdate(id, body);
+        ctx.body = responseWrapper(true, "应用设置已更新");
     }
 
     @request('post', '/api/apps/{teamId}/{id}/{versionId}/profile')
@@ -265,15 +393,17 @@ module.exports = class AppRouter {
     @body(versionProfile)
     @path({ teamId: { type: 'string', required: true }, id: { type: 'string', required: true }, versionId: { type: 'string', required: true } })
     static async setVersionProfile(ctx, next) {
-        var user = ctx.state.user.data;
-        var body = ctx.request.body;
-        var { teamId, id, versionId } = ctx.validatedParams;
-        var app = await appInTeamAndUserIsManager(id, teamId, user._id)
-        if (!app) {
-            throw new Error("应用不存在或您没有权限执行该操作")
+        const user = ctx.state.user.data;
+        const body = ctx.request.body;
+        const { teamId, id, versionId } = ctx.validatedParams;
+        let app = await appInTeamAndUserIsManager(id, teamId, user.id);
+        if(app.status) {
+            // ctx.status = result.status;
+            ctx.body = responseWrapper(false, app.msg);
+            return;
         }
-        await Version.findByIdAndUpdate(versionId, body)
-        ctx.body = responseWrapper(true, "版本设置已更新")
+        await Version.findByIdAndUpdate(versionId, body);
+        ctx.body = responseWrapper(true, "版本设置已更新");
     }
 
     @request('post', '/api/apps/{teamId}/{id}/grayPublish')
@@ -282,21 +412,23 @@ module.exports = class AppRouter {
     @path({ teamId: { type: 'string', require: true }, id: { type: 'string', require: true } })
     @body(grayRelease)
     static async grayReleaseAppVersion(ctx, next) {
-        var user = ctx.state.user.data
-        var { body } = ctx.request
-        var { teamId, id } = ctx.validatedParams;
+        const user = ctx.state.user.data;
+        const { body } = ctx.request;
+        const { teamId, id } = ctx.validatedParams;
 
-        var app = await appInTeamAndUserIsManager(id, teamId, user._id)
-        if (!app) {
-            throw new Error("应用不存在或您没有权限执行该操作")
+        let app = await appInTeamAndUserIsManager(id, teamId, user.id);
+        if(app.status) {
+            // ctx.status = result.status;
+            ctx.body = responseWrapper(false, app.msg);
+            return;
         }
-        var version = await Version.findById(body.version.versionId, "versionStr")
+        let version = await Version.findById(body.version.versionId, "versionStr");
 
-        await App.updateOne({ _id: app.id }, {
+        await App.updateOne({ id: app.id }, {
             grayReleaseVersionId: version.id,
             grayStrategy: body.strategy
-        })
-        ctx.body = responseWrapper(true, "版本已灰度发布")
+        });
+        ctx.body = responseWrapper(true, "版本已灰度发布");
     }
 
     @request('post', '/api/apps/{teamId}/{id}/release')
@@ -309,30 +441,39 @@ module.exports = class AppRouter {
         release: { type: 'bool', require: true }
     })
     static async releaseVersion(ctx, next) {
-        var user = ctx.state.user.data
-        var { body } = ctx.request
-        var { teamId, id } = ctx.validatedParams;
+        const user = ctx.state.user.data
+        const { body } = ctx.request
+        const { teamId, id } = ctx.validatedParams;
 
-        var app = await appInTeamAndUserIsManager(id, teamId, user._id)
-        if (!app) {
-            throw new Error("应用不存在或您没有权限执行该操作")
+        let app = await appInTeamAndUserIsManager(id, teamId, user.id);
+        if(app.status) {
+            // ctx.status = result.status;
+            ctx.body = responseWrapper(false, app.msg);
+            return;
         }
-        var version = await Version.findById(body.versionId)
+        let version = await Version.findOne({
+            versionCode: body.versionCode
+        });
         if (!version) {
-            throw new Error("版本不存在")
+            ctx.body = responseWrapper(false, "版本不存在");
+            return;
         }
         if (body.release) {
-            await App.updateOne({ _id: app.id }, {
-                releaseVersionId: version._id,
+            await App.update({
+                releaseVersionId: version.id,
                 releaseVersionCode: version.versionCode
-            })
+            }, {
+                where: { appId: app.appId }
+            });
         } else {
-            await App.updateOne({ _id: app.id }, {
-                releaseVersionId: '',
-                releaseVersionCode: ''
-            })
+            await App.update({
+                releaseVersionId: 0,
+                releaseVersionCode: 0
+            }, {
+                where: { appId: app.appId }
+            });
         }
-        ctx.body = responseWrapper(true, body.release ? "版本已发布" : "版本已关闭")
+        ctx.body = responseWrapper(true, body.release ? "版本已发布" : "版本已关闭");
     }
 
     @request('get', '/api/app/checkupdate/{teamID}/{platform}/{bundleID}/{currentVersionCode}')
@@ -345,91 +486,39 @@ module.exports = class AppRouter {
         platform: String
     })
     static async checkUpdate(ctx, next) {
-            var { teamID, bundleID, currentVersionCode, platform } = ctx.validatedParams;
-            var app = await App.findOne({ bundleId: bundleID, ownerId: teamID, platform: platform })
-            if (!app) {
-                throw new Error("应用不存在或您没有权限执行该操作")
-            }
-            // var lastVersionCode = app.currentVersion
-
-            // if ( < lastVersionCode) {
-            //1.拿出最新的version 最新的非灰度版本
-
-            // 最新的灰度版本
-            var lastestGrayVersion = await Version.findOne({ _id: app.grayReleaseVersionId })
-
-            // var version = await Version.findOne({ appId: app._id })
-            var normalVersion = await Version.findOne({ _id: app.releaseVersionId })
-
-            var version = normalVersion
-
-            var lastestGrayVersionCode = 0
-            var normalVersionCode = 0
-            if (version && version.versionCode) {
-                normalVersionCode = version.versionCode
-            }
-            if (lastestGrayVersion && lastestGrayVersion.versionCode) {
-                lastestGrayVersionCode = lastestGrayVersion.versionCode
-            }
-
-            if (app.grayReleaseVersionId && lastestGrayVersionCode > normalVersionCode) {
-                var ipType = app.grayStrategy.ipType
-                var ipList = app.grayStrategy.ipList
-                var clientIp = await getIp(ctx.request)
-                console.log("clientIp", clientIp)
-                if (ipType == 'white' && _.includes(ipList, clientIp)) { //如果是white 则允许获得灰度版本
-                    if (!app.grayStrategy.downloadCountLimit || app.grayStrategy.downloadCountLimit > lastestGrayVersion.downloadCount) {
-                        version = lastestGrayVersion
-                    }
-                }
-            }
-
-            if (!version || version.versionCode <= currentVersionCode) {
-                ctx.body = responseWrapper(false, "您已经是最新版本了")
-            } else {
-                ctx.body = responseWrapper({
-                    app: app,
-                    version: version
-                })
-            }
-
-        }
-        // }
-
-    @request('get', '/api/app/{appShortUrl}')
-    @summary("通过短链接获取应用最新版本")
-    @tag
-    @path({ appShortUrl: { type: 'string', require: true } })
-    static async getAppByShort(ctx, next) {
-        var { appShortUrl } = ctx.validatedParams
-        var app = await App.findOne({ shortUrl: appShortUrl })
+        const { teamID, bundleID, currentVersionCode, platform } = ctx.validatedParams;
+        let app = await App.findOne({ bundleId: bundleID, ownerId: teamID, platform: platform })
         if (!app) {
-            throw new Error("应用不存在")
+            ctx.body = responseWrapper(false, "应用不存在或您没有权限执行该操作");
+            return;
         }
-        // if (!app.releaseVersionId || app.releaseVersionId === '') {
-        //     throw new Error("当前没有已发布的版本可供下载")
-        // }
-        // var version = await Version.findById(app.releaseVersionId)
-        // if (!version) {
-        //     throw new Error("当前没有已发布的版本可供下载")
-        // }
+        // let lastVersionCode = app.currentVersion
 
-        var lastestGrayVersion = await Version.findOne({ _id: app.grayReleaseVersionId })
-        var version = await Version.findOne({ appId: app._id })
-            // var normalVersion = await Version.findOne({ _id: app.releaseVersionId })
-            // var version = normalVersion
-        var lastestGrayVersionCode = 0
-        var normalVersionCode = 0
+        // if ( < lastVersionCode) {
+        //1.拿出最新的version 最新的非灰度版本
+
+        // 最新的灰度版本
+        let lastestGrayVersion = await Version.findOne({ id: app.grayReleaseVersionId })
+
+        // let version = await Version.findOne({ appId: app.id })
+        let normalVersion = await Version.findOne({ id: app.releaseVersionId })
+
+        let version = normalVersion
+
+        let lastestGrayVersionCode = 0
+        let normalVersionCode = 0
         if (version && version.versionCode) {
             normalVersionCode = version.versionCode
         }
         if (lastestGrayVersion && lastestGrayVersion.versionCode) {
             lastestGrayVersionCode = lastestGrayVersion.versionCode
         }
+
         if (app.grayReleaseVersionId && lastestGrayVersionCode > normalVersionCode) {
-            var ipType = app.grayStrategy.ipType
-            var ipList = app.grayStrategy.ipList
-            var clientIp = await getIp(ctx.request)
+            let ipType = app.grayStrategy.ipType
+            let ipList = app.grayStrategy.ipList
+            let clientIp = await getIp(ctx.request)
+            console.log("clientIp", clientIp)
             if (ipType == 'white' && _.includes(ipList, clientIp)) { //如果是white 则允许获得灰度版本
                 if (!app.grayStrategy.downloadCountLimit || app.grayStrategy.downloadCountLimit > lastestGrayVersion.downloadCount) {
                     version = lastestGrayVersion
@@ -437,16 +526,73 @@ module.exports = class AppRouter {
             }
         }
 
-        if (!version) {
-            ctx.body = responseWrapper(false, "当前没有可用版本可供下载")
+        if (!version || version.versionCode <= currentVersionCode) {
+            ctx.body = responseWrapper(false, "您已经是最新版本了");
         } else {
             ctx.body = responseWrapper({
                 app: app,
                 version: version
-            })
+            });
         }
 
-        ctx.body = responseWrapper({ 'app': app, 'version': version })
+    }
+    // }
+
+    @request('get', '/api/app/{appShortUrl}')
+    @summary("通过短链接获取应用最新版本")
+    @tag
+    @path({ appShortUrl: { type: 'string', require: true } })
+    static async getAppByShort(ctx, next) {
+        const { appShortUrl } = ctx.validatedParams;
+        let app = await App.findOne({
+            where: {
+                [Op.or]: [{ shortUrl: appShortUrl }, { appId: appShortUrl }]
+            }
+        })
+        if (!app) {
+            ctx.body = responseWrapper(false, "应用不存在");
+            return;
+        }
+        // if (!app.releaseVersionId || app.releaseVersionId === '') {
+        //     throw new Error("当前没有已发布的版本可供下载")
+        // }
+        // let version = await Version.findById(app.releaseVersionId)
+        // if (!version) {
+        //     throw new Error("当前没有已发布的版本可供下载")
+        // }
+
+        let lastestGrayVersion = await Version.findOne({
+            where: { id: app.grayReleaseVersionId }
+        });
+        let version = await Version.findOne({
+            where: { appId: app.appId }
+        });
+        // let normalVersion = await Version.findOne({ id: app.releaseVersionId })
+        // let version = normalVersion
+        let lastestGrayVersionCode = 0;
+        let normalVersionCode = 0;
+        if (version && version.versionCode) {
+            normalVersionCode = version.versionCode;
+        }
+        if (lastestGrayVersion && lastestGrayVersion.versionCode) {
+            lastestGrayVersionCode = lastestGrayVersion.versionCode;
+        }
+        if (app.grayReleaseVersionId && lastestGrayVersionCode > normalVersionCode) {
+            let ipType = app.grayStrategy.ipType;
+            let ipList = app.grayStrategy.ipList;
+            let clientIp = await getIp(ctx.request);
+            if (ipType == 'white' && _.includes(ipList, clientIp)) { //如果是white 则允许获得灰度版本
+                if (!app.grayStrategy.downloadCountLimit || app.grayStrategy.downloadCountLimit > lastestGrayVersion.downloadCount) {
+                    version = lastestGrayVersion;
+                }
+            }
+        }
+
+        if (!version) {
+            ctx.body = responseWrapper(false, "当前没有可用版本可供下载");
+        } else {
+            ctx.body = responseWrapper({ 'app': app, 'version': version });
+        }
     }
 
     @request('post', '/api/app/{appId}/{versionId}')
@@ -455,8 +601,8 @@ module.exports = class AppRouter {
     @path({ appid: { type: 'string', require: true }, versionId: { type: 'string', require: true } })
     static async cancelReleaseByVersionId(ctx, next) {
         var { appId, versionId } = ctx.validatedParams
-        var app = await App.findOne({ _id: appId })
-        var version = await Version.findOne({ _id: versionId })
+        var app = await App.findOne({ id: appId })
+        var version = await Version.findOne({ id: versionId })
 
         if (!app) {
             throw new Error("应用不存在")
@@ -466,13 +612,13 @@ module.exports = class AppRouter {
         }
 
         if (versionId == app.releaseVersionId) {
-            await App.updateOne({ _id: appId }, {
+            await App.updateOne({ id: appId }, {
                 releaseVersionId: null
             })
         }
 
         if (versionId == app.grayReleaseVersionId) {
-            await App.updateOne({ _id: appId }, {
+            await App.updateOne({ id: appId }, {
                 grayReleaseVersionId: null,
                 grayStrategy: null
             })
@@ -489,14 +635,16 @@ module.exports = class AppRouter {
     @path({ appid: { type: 'string', require: true }, versionId: { type: 'string', require: true } })
     static async getAppPlist(ctx, next) {
         var { appid, versionId } = ctx.validatedParams
-        var app = await App.findOne({ _id: appid })
-        var version = await Version.findOne({ _id: versionId })
+        var app = await App.findOne({ id: appid })
+        var version = await Version.findOne({ id: versionId })
 
         if (!app) {
-            throw new Error("应用不存在")
+            ctx.body = responseWrapper(false, "应用不存在");
+            return;
         }
         if (!version) {
-            throw new Error("版本不存在")
+            ctx.body = responseWrapper(false, "版本不存在");
+            return;
         }
 
         var url = `${config.baseUrl}/${version.downloadUrl}`
@@ -521,99 +669,153 @@ module.exports = class AppRouter {
     @tag
     @path({ appid: { type: 'string', require: true }, versionId: { type: 'string', require: true } })
     static async addDownloadCount(ctx, next) {
-        var { appid, versionId } = ctx.validatedParams
-        var app = await App.findOne({ _id: appid }, "totalDownloadCount todayDownloadCount")
-        var version = await Version.findOne({ _id: versionId }, "downloadCount ")
+        const { appid, versionId } = ctx.validatedParams;
+        const app = await App.findOne({
+            where: { 
+                id: appid 
+            },
+            attributes: ['totalDownloadCount', 'todayDownloadCount']
+        });
+        const version = await Version.findOne({
+            where: { 
+                id: versionId 
+            }
+        });
 
         if (!app) {
-            throw new Error("应用不存在")
+            ctx.body = responseWrapper(false, "应用不存在");
+            return;
         }
         if (!version) {
-            throw new Error("版本不存在")
+            ctx.body = responseWrapper(false, "版本不存在");
+            return;
         }
 
-        var todayCount = 1;
-        var nowDate = new Date()
-        if (app.todayDownloadCount.date.toDateString() == nowDate.toDateString()) {
+        let todayCount = 1;
+        let nowDate = new Date();
+        if (new Date(app.todayDownloadCount.date).toDateString() == nowDate.toDateString()) {
             todayCount = app.todayDownloadCount + 1
         }
-        var appTotalCount = 1;
+        let appTotalCount = 1;
         if (app.totalDownloadCount) {
             appTotalCount = app.totalDownloadCount + 1
         }
-        await App.updateOne({ _id: appid }, {
+        const appRow = await App.update({
             totalDownloadCount: appTotalCount,
-            todayDownloadCount: {
-                count: app.totalDownloadCount + 1,
-                date: nowDate
+            todayDownloadCount: app.totalDownloadCount + 1,
+        }, {
+            where: {
+                id: appid
             }
-        })
-        var versionCount = 1;
+        });
+        const appDownloadRow = await AppDownload.create({ appId: appid, versionId: versionId, data: nowDate.getTime() });
+        let versionCount = 1;
         if (version.downloadCount) {
-            versionCount = version.downloadCount + 1
+            versionCount = version.downloadCount + 1;
         }
-        await Version.updateOne({ _id: versionId }, {
+        const versionRow = await Version.update({
             downloadCount: versionCount
-        })
-        ctx.body = responseWrapper(true, '下载次数已更新')
+        }, {
+            where: { 
+                id: versionId 
+            }
+        });
+        ctx.body = responseWrapper(true, '下载次数已更新');
     }
 
 
 }
 
 async function appInTeamAndUserIsManager(appId, teamId, userId) {
-    var team = await Team.findOne({
-        _id: teamId,
-        members: {
-            $elemMatch: {
-                _id: userId,
-                $or: [
-                    { role: 'owner' },
-                    { role: 'manager' }
-                ]
-            }
+    const team = await Team.findOne({
+        where: {
+            id: teamId
         },
-    }, "_id")
+        // attributes: ['id']
+    });
+
     if (!team) {
-        throw new Error("应用不存在或您没有权限执行该操作")
-    }
-    var app = await App.findOne({ _id: appId, ownerId: team._id })
-    if (!app) {
-        throw new Error("应用不存在或您没有权限执行该操作")
+        return {
+            status: 408,
+            msg: '应用不存在或您没有权限执行该操作'
+        }
     } else {
-        return app
+        if (team.role != 1 && team.role != 2) {
+            return {
+                status: 408,
+                msg: '您没有权限执行该操作'
+            }
+        }
+    }
+    const app = await App.findOne({
+        where: {
+            id: appId,
+            ownerId: team.id
+        }
+    });
+    if (!app) {
+        return {
+            status: 408,
+            msg: '应用不存在'
+        }
+    } else {
+        return app;
     }
 }
 
 async function appAndUserInTeam(appId, teamId, userId) {
-    var team = await Team.findOne({
-        _id: teamId,
-        members: {
-            $elemMatch: {
-                _id: userId
-            }
-        },
-    }, "_id")
-    var app = await App.find({ _id: appId, ownerId: team._id })
+    const team = await Team.findOne({
+        where: {
+            id: teamId,
+            creatorId: userId
+        }
+    });
+    if (!team) {
+        return {
+            status: 408,
+            msg: '您不在该团队中'
+        }
+    } 
+    const app = await App.findOne({
+        where: {
+            id: appId,
+            ownerId: team.id
+        }
+    });
     if (!app) {
-        throw new Error("应用不存在或您不在该团队中")
+        return {
+            status: 408,
+            msg: '应用不存在或您不在该团队中'
+        }
     } else {
-        return app
+        return app;
     }
 }
 
 async function userInTeam(appId, teamId, userId) {
-    var team = await Team.findOne({
-        _id: teamId,
-        members: {
-            $elemMatch: {
-                _id: userId
-            }
-        },
-    }, "_id")
-    var app = await App.findOne({ _id: id, ownerId: team._id })
+    const team = await Team.findOne({
+        where: {
+            id: teamId,
+            creatorId: userId
+        }
+    });
+    if (!team) {
+        return {
+            status: 408,
+            msg: '您不在该团队中'
+        }
+    } 
+    const app = await App.findOne({
+        where: { 
+            id: id, 
+            ownerId: team.id 
+        }
+    })
     if (!app) {
-        throw new Error("应用不存在或您不在该团队中")
+        return {
+            status: 408,
+            msg: '应用不存在或您不在该团队中'
+        }
     } else {
         return app
     }
@@ -621,9 +823,9 @@ async function userInTeam(appId, teamId, userId) {
 
 //设置模糊查询
 function modifyFilter(filter) {
-    let result = {}
+    let result = {};
     for (var key in filter) {
-        result[key] = { $regex: filter[key] }
+        result[key] = { $regex: filter[key] };
     }
-    return result
+    return result;
 }

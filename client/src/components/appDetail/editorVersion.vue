@@ -23,7 +23,8 @@
             <p class="versiondownload" style="display: inline-block" v-html="getDownLoadCount(this.versionInfo.downloadCount)"></p>/<span style="color: #9B9B9B;display: inline-block" v-html="getAllowDownLoadCount(this.versionInfo.strategy)"></span>
           </el-form-item>
           <el-form-item label="更新安装地址">
-            <input style="width: calc(100% - 40px)" v-model="downloadUrl" class="borderLine-input" type="text">
+            <!-- <input style="width: calc(100% - 40px)" v-model="downloadUrl" class="borderLine-input" type="text"> -->
+            <vue-qr class="qrcodeImg" :text="downloadUrl" :margin="20"></vue-qr>
           </el-form-item>
           <el-form-item label="更新方式">
             <el-radio v-model="updateType" label="normal">普通更新</el-radio>
@@ -51,9 +52,13 @@
 
 <script type="text/ecmascript-6">
   import * as AppResourceApi from '../../api/moudle/appResourceApi'
+  import VueQr from 'vue-qr'
   import {getUserTeam} from '../../mgr/userMgr'
 
   export default {
+    components: {
+      VueQr
+    },
     props: {
       versionInfo: {
         type: Object
@@ -97,7 +102,7 @@
           'changelog': this.updataContent,
           'updateMode': this.updateType
         }
-        AppResourceApi.updateNote(getUserTeam()._id, this.appInfo._id, this.versionInfo._id, body).then((res) => {
+        AppResourceApi.updateNote(getUserTeam().id, this.appInfo.id, this.versionInfo.id, body).then((res) => {
           console.log(res)
           this.$message.success(res.message)
           this.$emit('updateSuccess')

@@ -161,7 +161,7 @@
             TokenMgr.add(this.axios.baseURL, response.data.token)
             let user = {
               'userName': this.username,
-              'userId': response.data._id,
+              'userId': response.data.id,
               'teamArr': response.data.teams,
               'email': response.data.email,
               'apiToken': response.data.apiToken

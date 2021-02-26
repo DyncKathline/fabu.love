@@ -63,7 +63,7 @@ export function getUserTeam() {
 export function updateCurrentTeamName(item) {
   let user = StorageMgr.getItem(USERINFO_KEY)
   user.teamArr.forEach((team) => {
-    if (team._id === item._id) {
+    if (team.id === item.id) {
       team.name = item.name
     }
   })

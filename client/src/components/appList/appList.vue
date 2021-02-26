@@ -38,7 +38,7 @@
     >
     </collectionView>
 
-    <uploadApp v-if="this.showUploadView" :teamId="this.currentTeam._id" :appFile="this.file"
+    <uploadApp v-if="this.showUploadView" :teamId="this.currentTeam.id" :appFile="this.file"
                @closeUpload="closeUploadMethod"
                @uploadSuccess="uploadSuccessMethod"></uploadApp>
 
@@ -75,7 +75,7 @@
     computed: {},
     methods: {
       loadAppList() {
-        AppResourceApi.getAppList(this.currentTeam._id)
+        AppResourceApi.getAppList(this.currentTeam.id)
           .then(response => {
             this.dataList = []
             this.dataList = response.data.reverse()
@@ -131,7 +131,7 @@
       gotoAppDetail(item) {
         this.$router.push({
           name: 'AppDetail',
-          params: {appId: item._id}
+          params: {appId: item.id}
         })
         this.bus.$emit('appdetail')
       },
@@ -146,7 +146,7 @@
       delectApp(item) {
         this.$confirm('确认删除？')
           .then(_ => {
-            AppResourceApi.delectApp(this.currentTeam._id, item._id).then((res) => {
+            AppResourceApi.delectApp(this.currentTeam.id, item.id).then((res) => {
               this.loadAppList()
             }, reject => {
               this.$message.error(reject)

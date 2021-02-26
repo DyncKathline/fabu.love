@@ -82,7 +82,7 @@ module.exports = class MiniAppRouter {
 
         var content = {
             creator:user.username,
-            creatorId:user._id,
+            creatorId:user.id,
             appName:body.name,
             appId:body.appId,
             appSecret:body.appSecret,
@@ -122,7 +122,7 @@ module.exports = class MiniAppRouter {
         var user = ctx.state.user.data
         var { teamId, id } = ctx.validatedParams;
         var team = await Team.findOne({
-            _id: teamId,
+            id: teamId,
             members: {
                 $elemMatch: {
                     username: user.username,
@@ -133,11 +133,11 @@ module.exports = class MiniAppRouter {
                 }
             }
         })
-        var app = await Miniapp.findOne({ _id: id, ownerId: team._id })
+        var app = await Miniapp.findOne({ id: id, ownerId: team.id })
         if (!app) {
             throw new Error("应用不存在或您没有权限查询该应用")
         }
-        await Miniapp.deleteOne({ _id: app.id })
+        await Miniapp.deleteOne({ id: app.id })
         ctx.body = responseWrapper(true, "应用已删除")
     }
 
@@ -183,7 +183,7 @@ module.exports = class MiniAppRouter {
         var body = ctx.request.body;
 
         var app = await Miniapp.findOne({ appId: body.appId })
-        appInTeamAndUserIsManager(app._id,body.teamId,user._id)
+        appInTeamAndUserIsManager(app.id,body.teamId,user.id)
         
         var result = await axios.get(`https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${app.appId}&secret=${app.appSecret}`)
 
@@ -245,11 +245,11 @@ module.exports = class MiniAppRouter {
         var body = ctx.request.body;
 
         var app = await Miniapp.findOne({ appId: body.appId })
-        appInTeamAndUserIsManager(app._id,body.teamId,user._id)
+        appInTeamAndUserIsManager(app.id,body.teamId,user.id)
 
         await app.update({
             $pull: {
-                downloadCodeImage: { _id:body.codeId }
+                downloadCodeImage: { id:body.codeId }
             }
         })
         ctx.body = responseWrapper(true,'小程序码已删除')
@@ -265,7 +265,7 @@ module.exports = class MiniAppRouter {
     //     var body = ctx.request.body;
     //     var { teamId, id } = ctx.validatedParams;
 
-    //     var app = await appInTeamAndUserIsManager(id, teamId, user._id)
+    //     var app = await appInTeamAndUserIsManager(id, teamId, user.id)
     //     if (!app) {
     //         throw new Error("应用不存在或您没有权限执行该操作")
     //     }
@@ -281,8 +281,8 @@ module.exports = class MiniAppRouter {
     @path({ appid: { type: 'string', require: true }, versionId: { type: 'string', require: true } })
     static async addDownloadCount(ctx, next) {
         var { appid, versionId } = ctx.validatedParams
-        var app = await App.findOne({ _id: appid }, "totalDownloadCount todayDownloadCount")
-        var version = await Version.findOne({ _id: versionId }, "downloadCount ")
+        var app = await App.findOne({ id: appid }, "totalDownloadCount todayDownloadCount")
+        var version = await Version.findOne({ id: versionId }, "downloadCount ")
 
         if (!app) {
             throw new Error("应用不存在")
@@ -300,7 +300,7 @@ module.exports = class MiniAppRouter {
         if (app.totalDownloadCount) {
             appTotalCount = app.totalDownloadCount + 1
         }
-        await App.updateOne({ _id: appid }, {
+        await App.updateOne({ id: appid }, {
             totalDownloadCount: appTotalCount,
             todayDownloadCount: {
                 count: app.totalDownloadCount + 1,
@@ -311,7 +311,7 @@ module.exports = class MiniAppRouter {
         if (version.downloadCount) {
             versionCount = version.downloadCount + 1
         }
-        await Version.updateOne({ _id: versionId }, {
+        await Version.updateOne({ id: versionId }, {
             downloadCount: versionCount
         })
         ctx.body = responseWrapper(true, '下载次数已更新')
@@ -343,21 +343,21 @@ async function requestImage(url,data,codePath,imageName){
 
 async function appInTeamAndUserIsManager(appId, teamId, userId) {
     var team = await Team.findOne({
-        _id: teamId,
+        id: teamId,
         members: {
             $elemMatch: {
-                _id: userId,
+                id: userId,
                 $or: [
                     { role: 'owner' },
                     { role: 'manager' }
                 ]
             }
         },
-    }, "_id")
+    }, "id")
     if (!team) {
         throw new Error("应用不存在或您没有权限执行该操作")
     }
-    var app = await Miniapp.findOne({ _id: appId, ownerId: team._id })
+    var app = await Miniapp.findOne({ id: appId, ownerId: team.id })
     if (!app) {
         throw new Error("应用不存在或您没有权限执行该操作")
     } else {
@@ -367,14 +367,14 @@ async function appInTeamAndUserIsManager(appId, teamId, userId) {
 
 async function appAndUserInTeam(appId, teamId, userId) {
     var team = await Team.findOne({
-        _id: teamId,
+        id: teamId,
         members: {
             $elemMatch: {
-                _id: userId
+                id: userId
             }
         },
-    }, "_id")
-    var app = await App.find({ _id: appId, ownerId: team._id })
+    }, "id")
+    var app = await App.find({ id: appId, ownerId: team.id })
     if (!app) {
         throw new Error("应用不存在或您不在该团队中")
     } else {
@@ -384,14 +384,14 @@ async function appAndUserInTeam(appId, teamId, userId) {
 
 async function userInTeam(appId, teamId, userId) {
     var team = await Team.findOne({
-        _id: teamId,
+        id: teamId,
         members: {
             $elemMatch: {
-                _id: userId
+                id: userId
             }
         },
-    }, "_id")
-    var app = await App.findOne({ _id: id, ownerId: team._id })
+    }, "id")
+    var app = await App.findOne({ id: id, ownerId: team.id })
     if (!app) {
         throw new Error("应用不存在或您不在该团队中")
     } else {

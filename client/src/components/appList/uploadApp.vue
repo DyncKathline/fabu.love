@@ -19,7 +19,7 @@
         type: FileList
       },
       teamId: {
-        type: String
+        type: Number
       }
     },
     data() {
@@ -69,7 +69,7 @@
             })
             this.$emit('uploadSuccess')
           })
-          .catch(function(err) {
+          .catch((err) => {
             this.$emit('closeUpload')
             if (axios.isCancel(err)) {
               console.log('Request canceled', err.message)

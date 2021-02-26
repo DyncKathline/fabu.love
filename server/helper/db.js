@@ -1,31 +1,10 @@
-// const mysql = require('mysql');
-// import config from '../config';
-    
-// let connection = mysql.createConnection({
-//     host : config.dbHost,
-//     user : config.dbUser, 
-//     password : config.dbPass,
-//     database : config.dbName
-// });
-
-// connection.connect(function(err) {
-// if (err) {
-// console.error('连接失败: ' + err.stack);
-// return;
-// }
-
-// console.log('连接成功 id ' + connection.threadId);
-// });
-
-// module.exports = connection
-
 const mongoose = require('mongoose')
 const Fawn = require("fawn");
-import config from '../config';
+const {mongodb} = require('../config');
 
-var dbUrl = `mongodb://${config.dbHost}:${config.dbPort}/${config.dbName}`;
-if (config.dbUser) {
-    dbUrl = `mongodb://${config.dbUser}:${config.dbPass}@${config.dbHost}:${config.dbPort}/${config.dbName}`;
+var dbUrl = `mongodb://${mongodb.host}:${mongodb.port}/${mongodb.name}`;
+if (mongodb.user) {
+    dbUrl = `mongodb://${mongodb.user}:${mongodb.password}@${mongodb.host}:${mongodb.port}/${mongodb.name}`;
 }
 
 console.log(dbUrl)
