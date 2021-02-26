@@ -546,12 +546,29 @@ module.exports = class AppRouter {
         const { appShortUrl } = ctx.validatedParams;
         let app = await App.findOne({
             where: {
-                [Op.or]: [{ shortUrl: appShortUrl }, { appId: appShortUrl }]
+                shortUrl: appShortUrl
             }
-        })
+        });
+        let version;
         if (!app) {
-            ctx.body = responseWrapper(false, "应用不存在");
-            return;
+            version = await Version.findOne({
+                where: {
+                    id: appShortUrl
+                }
+            });
+            if(!version) {
+                ctx.body = responseWrapper(false, "应用不存在");
+                return;
+            }
+            app = await App.findOne({
+                where: {
+                    appId: version.appId
+                }
+            });
+            if(!app) {
+                ctx.body = responseWrapper(false, "应用不存在");
+                return;
+            }
         }
         // if (!app.releaseVersionId || app.releaseVersionId === '') {
         //     throw new Error("当前没有已发布的版本可供下载")
@@ -564,9 +581,18 @@ module.exports = class AppRouter {
         let lastestGrayVersion = await Version.findOne({
             where: { id: app.grayReleaseVersionId }
         });
-        let version = await Version.findOne({
-            where: { appId: app.appId }
-        });
+        if(!version) {
+            version = await Version.findAll({
+                where: { appId: app.appId },
+                order: [
+                    ['uploadTime', 'DESC']
+                ],
+                limit: 1
+            });
+            if(version.length > 0) {
+                version = version[0];
+            }
+        }
         // let normalVersion = await Version.findOne({ id: app.releaseVersionId })
         // let version = normalVersion
         let lastestGrayVersionCode = 0;

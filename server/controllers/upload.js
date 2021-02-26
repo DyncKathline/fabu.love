@@ -181,8 +181,9 @@ async function parseAppAndInsertToDB(file, user, team) {
         info.size = fs.statSync(filePath).size;
 
         let version = Object.assign({}, info);
-        version.md5 = filemd5;
+        version.id = uuidV4().replace(/-/g, "");
         version.appId = app.appId;
+        version.md5 = filemd5;
         version.uploadTime = now;
         if (app.platform == 'ios') {
             version.installUrl = mapInstallUrl(app.id, version.id);
@@ -205,6 +206,7 @@ async function parseAppAndInsertToDB(file, user, team) {
         info.size = fs.statSync(filePath).size;
 
         let version = Object.assign({}, info);
+        version.id = uuidV4().replace(/-/g, "");
         version.appId = app.appId;
         version.md5 = filemd5;
         version.uploadTime = now;

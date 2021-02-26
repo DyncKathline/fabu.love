@@ -171,7 +171,7 @@
         const {href} = this.$router.resolve({
           name: 'AppPreView',
           path: '/',
-          params: { 'id': row.appId }
+          params: { 'id': row.id }
         })
         window.open(href, '_blank')
       },
