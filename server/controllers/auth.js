@@ -51,7 +51,7 @@ module.exports = class AuthRouter {
     @request('post', '/api/user/apitoken')
     @summary('生成apitoken')
     @tag
-    async apiToken(ctx, next) {
+    static async apiToken(ctx, next) {
         const userObj = ctx.state.user.data;
         let user = await User.findOne({
             where: {
@@ -63,10 +63,14 @@ module.exports = class AuthRouter {
             var md5 = crypto.createHash('md5');
             var salt = user.email + Date();
             var key = md5.update(user.email + salt).digest('hex');
-            await User.findByIdAndUpdate(user.id, { apiToken: key });
+            const row = await User.update({ apiToken: key }, {
+                where: {
+                    id: user.id
+                }
+            });
             ctx.body = responseWrapper(key);
         } else {
-            throw new Error('授权失败，请重新登录后重试')
+            ctx.body = responseWrapper(false, '授权失败，请重新登录后重试');
         }
     }
 

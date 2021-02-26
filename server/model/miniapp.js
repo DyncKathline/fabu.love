@@ -3,8 +3,7 @@ const sequelize = require('../helper/sequelize')
 app.model = sequelize;
 const { Op } = app;
 
-const model = require("../database/model/version")(app);
-// model.removeAttribute('id');
+const model = require("../database/model/miniapp")(app);
 
 
 module.exports = model;

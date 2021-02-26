@@ -5,12 +5,12 @@ module.exports = app => {
   const sequelize = app.model;
   const attributes = {
     id: {
-      type: DataTypes.INTEGER(11),
+      type: DataTypes.STRING(32),
       allowNull: false,
       defaultValue: null,
       primaryKey: true,
       autoIncrement: false,
-      comment: null,
+      comment: "version表id",
       field: "id"
     },
     ipType: {

@@ -185,7 +185,7 @@ module.exports = class AppRouter {
             ctx.body = responseWrapper(false, '您没有权限查询该应用');
             return;
         } else {
-            if (team.role != 1 || team.role != 2) {
+            if (team.role != 1 && team.role != 2) {
                 ctx.body = responseWrapper(false, '您的权限不足');
                 return;
             }
@@ -202,10 +202,12 @@ module.exports = class AppRouter {
         }
         await Version.destroy({
             where: {
-                appId: app.id
+                appId: app.appId
             }
         });
-        await App.deleteOne({ id: app.id });
+        await App.destroy({
+            where: { id: app.id }
+        });
         ctx.body = responseWrapper(true, "应用已删除");
     }
 

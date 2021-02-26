@@ -16,16 +16,17 @@ import fpath from 'path';
 import mustache from 'mustache';
 import _ from 'lodash'
 
-
-
+const { Op } = require("sequelize");
+const Miniapp = require('../model/miniapp');
+const DownloadCodeImage = require('../model/download_code_image');
+const Team = require('../model/team');
+const TeamMembers = require('../model/team_members');
 
 const axios = require('axios');
-const Miniapp = require('../model/miniapp_model')
-const Team = require('../model/team')
-
 const tag = tags(['MiniAppResource']);
 const mkdirp = require('mkdirp')
 const uuidv1 = require('uuid/v1');
+const uuidV4 = require('uuid/v4');
 
 //更新策略
 
@@ -69,30 +70,33 @@ module.exports = class MiniAppRouter {
     @summary("创建一个小程序")
     @body({
         name: { type: 'string', require: true },
-        appId: { type: 'string', require: true ,description: "小程序的appid" },
-        appSecret: { type: 'string', require: true ,description: "小程序的appSecret" },
-        teamId: { type: 'string', require: true ,description: "团队id,表示创建到哪个团队下" },
+        appId: { type: 'string', require: true, description: "小程序的appid" },
+        appSecret: { type: 'string', require: true, description: "小程序的appSecret" },
+        teamId: { type: 'string', require: true, description: "团队id,表示创建到哪个团队下" },
     })
     @tag
     static async createMiniApp(ctx, next) {
-        // var page = ctx.query.page || 0
-        // var size = ctx.query.size || 10
-        var user = ctx.state.user.data;
-        var body = ctx.request.body;
+        // const page = ctx.query.page || 0
+        // const size = ctx.query.size || 10
+        const user = ctx.state.user.data;
+        const body = ctx.request.body;
 
-        var content = {
-            creator:user.username,
-            creatorId:user.id,
-            appName:body.name,
-            appId:body.appId,
-            appSecret:body.appSecret,
-            ownerId:body.teamId
+        const now = Date.now();
+        const content = {
+            platform: 'wx',
+            creator: user.username,
+            creatorId: user.id,
+            appName: body.name,
+            appId: body.appId,
+            appSecret: body.appSecret,
+            ownerId: body.teamId,
+            createTime: now,
+            updateTime: now
         }
 
-        var app = new Miniapp(content)
-        await app.save()
-            // .limit(size).skip(page * size)
-        ctx.body = responseWrapper(app)
+        const app = await Miniapp.create(content);
+        // .limit(size).skip(page * size)
+        ctx.body = responseWrapper(app);
     }
 
     @request('get', '/api/miniapps/{teamId}/{id}')
@@ -103,12 +107,22 @@ module.exports = class MiniAppRouter {
         id: { type: 'string', description: '应用id' }
     })
     static async getMiniAppDetail(ctx, next) {
-        var user = ctx.state.user.data
-        var { teamId, id } = ctx.validatedParams;
+        const user = ctx.state.user.data
+        const { teamId, id } = ctx.validatedParams;
         //todo: 这里其实还要判断该用户在不在team中
         //且该应用也在team中,才有权限查看
-        var app = await Miniapp.findById(id)
-        ctx.body = responseWrapper(app)
+        const app = await Miniapp.findOne({
+            where: {
+                id
+            }
+        });
+        const downloadCodeInfo = await DownloadCodeImage.findAll({
+            where: {
+                appId: app.appId
+            }
+        });
+        app.downloadCodeImage = downloadCodeInfo;
+        ctx.body = responseWrapper(app);
     }
 
     @request('delete', '/api/miniapps/{teamId}/{id}')
@@ -119,140 +133,154 @@ module.exports = class MiniAppRouter {
         id: { type: 'string', description: '应用id' }
     })
     static async deleteMiniApp(ctx, next) {
-        var user = ctx.state.user.data
-        var { teamId, id } = ctx.validatedParams;
-        var team = await Team.findOne({
-            id: teamId,
-            members: {
-                $elemMatch: {
-                    username: user.username,
-                    $or: [
-                        { role: 'owner' },
-                        { role: 'manager' }
-                    ]
-                }
+        const user = ctx.state.user.data
+        const { teamId, id } = ctx.validatedParams;
+
+        const team = await Team.findOne({
+            where: {
+                id: teamId,
+                creatorId: user.id
             }
-        })
-        var app = await Miniapp.findOne({ id: id, ownerId: team.id })
+        });
+        const app = await Miniapp.findOne({
+            where: { id: id, ownerId: team.id }
+        });
         if (!app) {
-            throw new Error("应用不存在或您没有权限查询该应用")
+            ctx.body = responseWrapper(false, '应用不存在或您没有权限查询该应用');
+            return;
         }
-        await Miniapp.deleteOne({ id: app.id })
-        ctx.body = responseWrapper(true, "应用已删除")
+        await Miniapp.destroy({
+            where: { id: app.id }
+        });
+        ctx.body = responseWrapper(true, "应用已删除");
     }
 
     @request('get', '/api/miniapps/{teamId}')
     @summary("获取团队下小程序列表")
-        // @query(
-        //     {
-        //     page:{type:'number',default:0,description:'分页页码(可选)'},
-        //     size:{type:'number',default:10,description:'每页条数(可选)'}
-        // })
+    // @query(
+    //     {
+    //     page:{type:'number',default:0,description:'分页页码(可选)'},
+    //     size:{type:'number',default:10,description:'每页条数(可选)'}
+    // })
     @path({ teamId: { type: 'string', description: '团队id' } })
     @tag
     static async getApps(ctx, next) {
-        // var page = ctx.query.page || 0
-        // var size = ctx.query.size || 10
-        var user = ctx.state.user.data;
-        var { teamId } = ctx.validatedParams;
+        // const page = ctx.query.page || 0
+        // const size = ctx.query.size || 10
+        const user = ctx.state.user.data;
+        const { teamId } = ctx.validatedParams;
 
-        var result = await Miniapp.find({ 'ownerId': teamId || user.id })
-            // .limit(size).skip(page * size)
-        ctx.body = responseWrapper(result)
+        const result = await Miniapp.findAll({
+            where: {
+                [Op.or]: [{ 'ownerId': teamId }, { 'ownerId': user.id }]
+            }
+        });
+        // .limit(size).skip(page * size)
+        ctx.body = responseWrapper(result);
     }
 
     @request('post', '/api/miniapps/adddownloadcode')
     @summary("根据授权码或租户id添加一个下载二维码")
-        // @query(
-        //     {
-        //     page:{type:'number',default:0,description:'分页页码(可选)'},
-        //     size:{type:'number',default:10,description:'每页条数(可选)'}
-        // })
+    // @query(
+    //     {
+    //     page:{type:'number',default:0,description:'分页页码(可选)'},
+    //     size:{type:'number',default:10,description:'每页条数(可选)'}
+    // })
     @body({
-        appId: { type: 'string', require: true ,description: "小程序的appid" },
-        scene: { type: 'string', require: false ,description: "场景参数列如authcode=xxxx&match=xxxx" },
-        page: { type: 'string', require: false ,description: "入口页面" },
-        remark: { type: 'string', require: true ,description: "备注信息" },
-        teamId: { type: 'string', require: true ,description: "团队id" },
+        appId: { type: 'string', require: true, description: "小程序的appid" },
+        scene: { type: 'string', require: false, description: "场景参数列如authcode=xxxx&match=xxxx" },
+        page: { type: 'string', require: false, description: "入口页面" },
+        remark: { type: 'string', require: true, description: "备注信息" },
+        teamId: { type: 'string', require: true, description: "团队id" },
     })
     @tag
     static async addDownloadCode(ctx, next) {
         // var page = ctx.query.page || 0
         // var size = ctx.query.size || 10
-        var user = ctx.state.user.data;
-        var body = ctx.request.body;
+        const user = ctx.state.user.data;
+        const body = ctx.request.body;
 
-        var app = await Miniapp.findOne({ appId: body.appId })
-        appInTeamAndUserIsManager(app.id,body.teamId,user.id)
-        
-        var result = await axios.get(`https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${app.appId}&secret=${app.appSecret}`)
-
-        var token = result.data.access_token
-        console.log(token)
-        if(!token){
-            throw new Error("获取token失败，检查网络和appid和appsecret")
+        const app = await Miniapp.findOne({
+            where: {
+                appId: body.appId
+            }
+        });
+        const miniapp = await appInTeamAndUserIsManager(app.id, body.teamId, user.id);
+        if (miniapp.status) {
+            // ctx.status = result.status;
+            ctx.body = responseWrapper(false, miniapp.msg);
+            return;
         }
 
-        var dir = `upload/mini/${app.appId}`
-        var uploadDir = fpath.join(config.fileDir, dir)
-        createFolderIfNeeded(uploadDir)
-        var imageName = `${uuidv1()}.jpg`;
-        if (body.scene){
-            var result = await requestImage(`https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=${token}`,{
+        const result = await axios.get(`https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${app.appId}&secret=${app.appSecret}`)
+
+        const token = result.data.access_token;
+        console.log(token);
+        if (!token) {
+            ctx.body = responseWrapper(false, '获取token失败，检查网络和appid和appsecret');
+            return;
+        }
+
+        const dir = `upload/mini/${app.appId}`;
+        const uploadDir = fpath.join(config.fileDir, dir);
+        createFolderIfNeeded(uploadDir);
+        const imageName = `${uuidv1()}.jpg`;
+        if (body.scene) {
+            const result = await requestImage(`https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=${token}`, {
                 scene: body.scene,
                 page: body.page
-            },uploadDir,imageName)
-            console.log(result)
-        }else{
-            var result = await requestImage(`https://api.weixin.qq.com/wxa/getwxacode?access_token=${token}`,{
+            }, uploadDir, imageName);
+            console.log(result);
+        } else {
+            const result = await requestImage(`https://api.weixin.qq.com/wxa/getwxacode?access_token=${token}`, {
                 path: body.page
-            },uploadDir,imageName)
-            console.log(result)
+            }, uploadDir, imageName);
+            console.log(result);
         }
 
-        var downloadCodeInfo = {
-            remark:body.remark,
-            image:`${dir}/${imageName}`,
-            param:body.scene,
-            page:body.page
+        const downloadCodeInfo = {
+            id: uuidV4().replace(/-/g, ""),
+            appId: body.appId,
+            remark: body.remark,
+            image: `${dir}/${imageName}`,
+            param: body.scene,
+            page: body.page
         }
 
-        await app.update({
-            $push: {
-                downloadCodeImage: downloadCodeInfo
-            }
-        })
-        var updatedApp = await Miniapp.findOne({ appId: body.appId })
-        ctx.body = responseWrapper(updatedApp)
+        const row = await DownloadCodeImage.create(downloadCodeInfo);
+        ctx.body = responseWrapper(updatedApp);
     }
 
     @request('post', '/api/miniapps/removedownloadcode')
     @summary("删除一个下载二维码")
-        // @query(
-        //     {
-        //     page:{type:'number',default:0,description:'分页页码(可选)'},
-        //     size:{type:'number',default:10,description:'每页条数(可选)'}
-        // })
+    // @query(
+    //     {
+    //     page:{type:'number',default:0,description:'分页页码(可选)'},
+    //     size:{type:'number',default:10,description:'每页条数(可选)'}
+    // })
     @body({
-        appId: { type: 'string', require: true ,description: "小程序的appid" },
-        codeId: { type: 'string', require: true ,description: "入口页面" },
+        appId: { type: 'string', require: true, description: "小程序的appid" },
+        codeId: { type: 'string', require: true, description: "入口页面" },
     })
     @tag
     static async removeDownloadCode(ctx, next) {
-        // var page = ctx.query.page || 0
-        // var size = ctx.query.size || 10
-        var user = ctx.state.user.data;
-        var body = ctx.request.body;
+        // const page = ctx.query.page || 0
+        // const size = ctx.query.size || 10
+        const user = ctx.state.user.data;
+        const body = ctx.request.body;
 
-        var app = await Miniapp.findOne({ appId: body.appId })
-        appInTeamAndUserIsManager(app.id,body.teamId,user.id)
+        const app = await Miniapp.findOne({
+            where: { appId: body.appId }
+        });
+        const miniapp = appInTeamAndUserIsManager(app.id, body.teamId, user.id);
+        if (miniapp.status) {
+            // ctx.status = result.status;
+            ctx.body = responseWrapper(false, miniapp.msg);
+            return;
+        }
 
-        await app.update({
-            $pull: {
-                downloadCodeImage: { id:body.codeId }
-            }
-        })
-        ctx.body = responseWrapper(true,'小程序码已删除')
+        const row = await DownloadCodeImage.destroy({ where: { appId: body.appId } });
+        ctx.body = responseWrapper(true, '小程序码已删除');
     }
 
     // @request('post', '/api/apps/{teamId}/{id}/profile')
@@ -273,8 +301,8 @@ module.exports = class MiniAppRouter {
     //     ctx.body = responseWrapper(true, "应用设置已更新")
     // }
 
-  
-  
+
+
     @request('get', '/api/count/{appid}/{versionId}')
     @summary("增加一次下载次数")
     @tag
@@ -321,23 +349,23 @@ module.exports = class MiniAppRouter {
 }
 
 
-async function requestImage(url,data,codePath,imageName){
+async function requestImage(url, data, codePath, imageName) {
 
 
     const path = fpath.resolve(codePath, imageName)
     const writer = fs.createWriteStream(path)
     const response = await axios({
-      url,
-      method: 'POST',
-      responseType: 'stream',
-      data: data
+        url,
+        method: 'POST',
+        responseType: 'stream',
+        data: data
     })
-    
+
     response.data.pipe(writer)
-  
+
     return new Promise((resolve, reject) => {
-      writer.on('finish', resolve)
-      writer.on('error', reject)
+        writer.on('finish', resolve)
+        writer.on('error', reject)
     })
 }
 
@@ -355,11 +383,17 @@ async function appInTeamAndUserIsManager(appId, teamId, userId) {
         },
     }, "id")
     if (!team) {
-        throw new Error("应用不存在或您没有权限执行该操作")
+        return {
+            status: 408,
+            msg: '应用不存在或您没有权限执行该操作'
+        }
     }
     var app = await Miniapp.findOne({ id: appId, ownerId: team.id })
     if (!app) {
-        throw new Error("应用不存在或您没有权限执行该操作")
+        return {
+            status: 408,
+            msg: '应用不存在或您没有权限执行该操作'
+        }
     } else {
         return app
     }
@@ -410,7 +444,7 @@ function modifyFilter(filter) {
 
 function createFolderIfNeeded(path) {
     if (!fs.existsSync(path)) {
-        mkdirp.sync(path, function(err) {
+        mkdirp.sync(path, function (err) {
             if (err) console.error(err)
         })
     }

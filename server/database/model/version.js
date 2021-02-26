@@ -34,7 +34,7 @@ module.exports = app => {
     icon: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      defaultValue: null,
+      defaultValue: "",
       primaryKey: false,
       autoIncrement: false,
       comment: null,

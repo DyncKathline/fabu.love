@@ -12,27 +12,27 @@ import {
 } from '../swagger';
 import config from '../config';
 const { Op } = require("sequelize");
-const Team = require('../model/team')
-const Version = require('../model/version')
-const App = require('../model/app')
+const Team = require('../model/team');
+const Version = require('../model/version');
+const App = require('../model/app');
 const multer = require('koa-multer');
-const fs = require('fs')
-const crypto = require('crypto')
-const path = require('path')
-const os = require('os')
-const mime = require('mime')
-const uuidV4 = require('uuid/v4')
-const etl = require('etl')
-const mkdirp = require('mkdirp')
-const AppInfoParser = require('app-info-parser')
-const { compose, maxBy, filter, get } = require('lodash/fp')
+const fs = require('fs');
+const crypto = require('crypto');
+const path = require('path');
+const os = require('os');
+const mime = require('mime');
+const uuidV4 = require('uuid/v4');
+const etl = require('etl');
+const mkdirp = require('mkdirp');
+const AppInfoParser = require('app-info-parser');
+const { compose, maxBy, filter, get } = require('lodash/fp');
 
-const { writeFile, readFile, responseWrapper, exec } = require('../helper/util')
+const { writeFile, readFile, responseWrapper, exec } = require('../helper/util');
 
-const tempDir = path.join(config.fileDir, 'temp')
-const uploadDir = path.join(config.fileDir, 'upload')
+const tempDir = path.join(config.fileDir, 'temp');
+const uploadDir = path.join(config.fileDir, 'upload');
 
-createFolderIfNeeded(tempDir)
+createFolderIfNeeded(tempDir);
 
 const uploadPrefix = "upload";
 

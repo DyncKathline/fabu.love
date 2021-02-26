@@ -31,23 +31,14 @@ module.exports = app => {
       comment: null,
       field: "platform"
     },
-    bundleId: {
+    appSecret: {
       type: DataTypes.STRING(64),
       allowNull: false,
       defaultValue: "",
       primaryKey: false,
       autoIncrement: false,
       comment: null,
-      field: "bundleId"
-    },
-    bundleName: {
-      type: DataTypes.STRING(32),
-      allowNull: false,
-      defaultValue: "",
-      primaryKey: false,
-      autoIncrement: false,
-      comment: null,
-      field: "bundleName"
+      field: "appSecret"
     },
     appName: {
       type: DataTypes.STRING(32),
@@ -102,15 +93,6 @@ module.exports = app => {
       autoIncrement: false,
       comment: null,
       field: "describe"
-    },
-    shortUrl: {
-      type: DataTypes.STRING(64),
-      allowNull: false,
-      defaultValue: "",
-      primaryKey: false,
-      autoIncrement: false,
-      comment: null,
-      field: "shortUrl"
     },
     autoPublish: {
       type: DataTypes.INTEGER(1),
@@ -249,10 +231,10 @@ module.exports = app => {
     }
   };
   const options = {
-    tableName: "app",
+    tableName: "miniapp",
     comment: "",
     indexes: []
   };
-  const AppModel = sequelize.define("app_model", attributes, options);
-  return AppModel;
+  const MiniappModel = sequelize.define("miniapp_model", attributes, options);
+  return MiniappModel;
 };
