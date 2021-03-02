@@ -16,8 +16,6 @@ import Teams from "../model/teams";
 import TeamMembers from "../model/team_members";
 import Message from "../model/message";
 import { responseWrapper } from "../helper/util";
-import Fawn from "fawn";
-import mongoose from "mongoose";
 import validator from "../helper/validator";
 import Mail from "../helper/mail"
 import config from "../config"

@@ -29,7 +29,10 @@ const options = {
 }
 
 // 生成redis的client
-const redisClient = client.createClient(options)
+const redisClient = client.createClient(options);
+redisClient.on('connect',function(){
+  console.log('redis connect success!');
+});
  
 const redis = {
 	async set(key, value, seconds) {

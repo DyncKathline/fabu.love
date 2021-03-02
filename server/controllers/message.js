@@ -6,8 +6,6 @@ import Team from "../model/team";
 import Message from "../model/message";
 
 import { responseWrapper } from "../helper/util";
-import bcrypt from "bcrypt";
-import Fawn from "fawn";
 
 const tag = tags(["消息"]);
 
