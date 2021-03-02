@@ -1,6 +1,5 @@
 // var fs = require("fs")
-var path = require("path")
-
+const path = require("path")
 
 const config = {
     baseUrl: process.env.FABU_BASE_URL || "https://127.0.0.1:9898", //baseUrl应用请求的url地址,比如https://fabu.love
@@ -9,13 +8,6 @@ const config = {
 
     fileDir: process.env.FABU_UPLOAD_DIR || path.join(__dirname, ".."), //上传文件的存放目录
     secret: process.env.FABU_SECRET || "secretsecret", //secret
-    mongodb: {
-        user: process.env.FABU_DBUSER || undefined, //数据库用户 (没有开启mongodb用户认证的可以不填写)
-        password: process.env.FABU_DBPWD || undefined, //数据库密码 (没有开启mongodb用户认证的可以不填写)
-        name: process.env.FABU_DB_NAME || "fabulove", //数据库名称
-        host: process.env.FABU_DB_HOST || "0.0.0.0", //数据库地址
-        port: process.env.FABU_DB_PORT || "27017", //数据库端口
-    },
 
     sequelize: {
         dialect: "mysql",

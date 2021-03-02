@@ -46,7 +46,7 @@ demo地址: https://fabu.apppills.com/
 
 运行前准备
 
-* 安装 MongoDB (3.6)
+* 安装 Mysql
 * 安装 Nodejs
 * 安装 pm2、babel-node
 
@@ -60,7 +60,7 @@ npm install -g pm2 babel-cli
 npm install -g cnpm --registry=https://registry.npm.taobao.org
 ```
 
-1.clone 下载代码 `git clone https://github.com/HeadingMobile/LoveFabu.git`
+1.clone 下载代码 `git clone https://github.com/DyncKathline/fabu.love.git`
 
 2.运行server端
 
@@ -74,7 +74,7 @@ npm start
 ...
 ...
 App is listening on 9898.
-数据库连接成功
+redis connect success!
 =============>>end
 ```
 
@@ -113,37 +113,74 @@ npm run dev  #本地运行可以使用该命令
 //需要修改配置可以修改config.js文件,也可以在部署的时候导出环境变量
 //比如 export FABU_BASE_URL=https://127.0.0.1:9898
 
-const common = {
-    //baseUrl应用请求的url地址,比如https://fabu.love
-    baseUrl: process.env.FABU_BASE_URL || "https://127.0.0.1:9898", 
+// var fs = require("fs")
+const path = require("path")
+
+const config = {
+    baseUrl: process.env.FABU_BASE_URL || "https://127.0.0.1:9898", //baseUrl应用请求的url地址,比如https://fabu.love
     port: process.env.FABU_PORT || "9898", //server运行的端口
     apiPrefix: 'api',
+
     fileDir: process.env.FABU_UPLOAD_DIR || path.join(__dirname, ".."), //上传文件的存放目录
     secret: process.env.FABU_SECRET || "secretsecret", //secret
-    //数据库用户 (没有开启mongodb用户认证的可以不填写)
-    dbUser: process.env.FABU_DBUSER || undefined,  
-    //数据库密码 (没有开启mongodb用户认证的可以不填写)
-    dbPass: process.env.FABU_DBPWD || undefined,  
-    dbName: process.env.FABU_DB_NAME || "fabulove", //数据库名称
-    dbHost: process.env.FABU_DB_HOST || "localhost", //数据库地址
-    dbPort: process.env.FABU_DB_PORT || "27017", //数据库端口
-	
-    //邮件相关配置 用于找回密码和邀请团队成员发送邮件
-    emailService: process.env.FABU_EMAIL_SERVICE || "qq", 
-    emailUser: process.env.FABU_EMAIL_USER || "", 
+
+    sequelize: {
+        dialect: "mysql",
+        database: "fabulove",
+        host: "127.0.0.1",
+        port: 3306,
+        username: "root",
+        password: "123456",
+        query: { raw: true },
+        define: {
+            // 使用自己配置的表名，避免sequelize自动将表名转换为复数
+            freezeTableName: true,
+            // don't add the timestamp attributes (updatedAt, createdAt)
+            timestamps: false,
+            updatedAt: "updated_time",
+            createdAt: "created_time",
+            hooks: {
+                beforeValidate: function (obj) {
+                    const now = Date.now();
+                    obj.updated_time = now;
+                    obj.created_time = now;
+                }
+            }
+        }
+    },
+
+    redis: {
+        host: process.env.FABU_DB_HOST || "127.0.0.1",
+        port: process.env.FABU_DB_HOST || "6379",
+        password: process.env.FABU_DB_HOST || "",
+        db: process.env.FABU_DB_HOST || "0",
+        keyPrefix: process.env.FABU_DB_HOST || "kath",
+    },
+
+    emailService: process.env.FABU_EMAIL_SERVICE || "qq", //邮件相关配置 用于找回密码和邀请团队成员发送邮件
+    emailUser: process.env.FABU_EMAIL_USER || "",
     emailPass: process.env.FABU_EMAIL_PASS || "",
+    emailPort: process.env.FABU_EMAIL_PORT || "587",
 
-    //是否允许用户注册,为否则后端注册接口不可用
-    allowRegister: process.env.FABU_ALLOW_REGISTER || true, 
+    allowRegister: boolConfig(process.env.FABU_ALLOW_REGISTER || "true"), //是否允许用户注册,为否则后端注册接口不可用
 
-    //是否开启ldap 默认是false 如果公司没有ldap服务可以不用理会
-    openLdap: process.env.FABU_ALLOW_LDAP || false, 
-    ldapServer: process.env.FABU_LDAP_URL || "",  //ldap server url
-    ldapUserDn: process.env.FABU_LDAP_USERDN || "", //ldap管理员dn 管理员用户名
+    openLdap: boolConfig(process.env.FABU_ALLOW_LDAP || "false"), //是否开启ldap 默认是false 如果公司没有ldap服务可以不用理会
+    ldapServer: process.env.FABU_LDAP_URL || "", //ldap server url
+    ldapUserDn: process.env.FABU_LDAP_USERDN || "", //ldap管理员dn 也就是管理员用户名
     ldapBindCredentials: process.env.FABU_LDAP_CREDENTIALS || "", //ldap管理员密码
-    ldapBase: process.env.FABU_LDAP_BASE || "" //ldap base
-
+    ldapBase: process.env.FABU_LDAP_BASE || "", //ldap base
 };
+
+function boolConfig(str) {
+    if (str == 'true') {
+        return true
+    } else {
+        return false
+    }
+}
+
+
+module.exports = config;
 ```
 
 
@@ -183,7 +220,7 @@ server{
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   }
-  client_max_body_size 208M; #最大上传的ipa/apk文件大小
+  client_max_body_size 500M; #最大上传的ipa/apk文件大小
 }
 ```
 
