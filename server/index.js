@@ -90,9 +90,15 @@ app.use(async (ctx, next) => {
 app.use(async (ctx, next) => {
     var key = ctx.request.headers['apikey']
     if (!isUndefined(key)) {
-        var user = await Varify.auth(key).catch(error => {
-            throw error
-        })
+        const user = await Varify.auth(key);
+        if(user.status) {
+            ctx.status = 401;
+            ctx.body = {
+                code: 0,
+                msg: user.msg
+            }
+            return
+        }
         ctx.state.user = { data: user }
         await next()
     } else {

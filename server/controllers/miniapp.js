@@ -21,6 +21,7 @@ const Miniapp = require('../model/miniapp');
 const DownloadCodeImage = require('../model/download_code_image');
 const Team = require('../model/team');
 const TeamMembers = require('../model/team_members');
+const AppDownload = require('../model/app_download');
 
 const axios = require('axios');
 const tag = tags(['MiniAppResource']);
@@ -308,50 +309,54 @@ module.exports = class MiniAppRouter {
     @tag
     @path({ appid: { type: 'string', require: true }, versionId: { type: 'string', require: true } })
     static async addDownloadCount(ctx, next) {
-        var { appid, versionId } = ctx.validatedParams
-        var app = await App.findOne({ id: appid }, "totalDownloadCount todayDownloadCount")
-        var version = await Version.findOne({ id: versionId }, "downloadCount ")
+        const { appid, versionId } = ctx.validatedParams
+        const app = await App.findOne({
+            where: { id: appid },
+        });
+        const version = await Version.findOne({
+            where: { id: versionId }
+        });
 
         if (!app) {
-            throw new Error("应用不存在")
+            ctx.body = responseWrapper(false, "应用不存在");
+            return;
         }
         if (!version) {
-            throw new Error("版本不存在")
+            ctx.body = responseWrapper(false, "版本不存在");
+            return;
         }
 
-        var todayCount = 1;
-        var nowDate = new Date()
-        if (app.todayDownloadCount.date.toDateString() == nowDate.toDateString()) {
-            todayCount = app.todayDownloadCount + 1
-        }
-        var appTotalCount = 1;
+        let todayCount = 1;//这里使用redis进行统计
+        const now = Date.now();
+        let appTotalCount = 1;
         if (app.totalDownloadCount) {
             appTotalCount = app.totalDownloadCount + 1
         }
-        await App.updateOne({ id: appid }, {
+        await App.update({
             totalDownloadCount: appTotalCount,
-            todayDownloadCount: {
-                count: app.totalDownloadCount + 1,
-                date: nowDate
-            }
+            todayDownloadCount: app.totalDownloadCount + 1
+        }, {
+            where: { id: appid }, 
         })
-        var versionCount = 1;
+        await AppDownload.create({
+            appId: appid,
+            versionId: versionId,
+            data: now
+        });
+        let versionCount = 1;
         if (version.downloadCount) {
             versionCount = version.downloadCount + 1
         }
-        await Version.updateOne({ id: versionId }, {
+        await Version.update({
             downloadCount: versionCount
+        }, {
+            where: { id: versionId }
         })
         ctx.body = responseWrapper(true, '下载次数已更新')
     }
-
-
 }
 
-
 async function requestImage(url, data, codePath, imageName) {
-
-
     const path = fpath.resolve(codePath, imageName)
     const writer = fs.createWriteStream(path)
     const response = await axios({
@@ -370,25 +375,21 @@ async function requestImage(url, data, codePath, imageName) {
 }
 
 async function appInTeamAndUserIsManager(appId, teamId, userId) {
-    var team = await Team.findOne({
-        id: teamId,
-        members: {
-            $elemMatch: {
-                id: userId,
-                $or: [
-                    { role: 'owner' },
-                    { role: 'manager' }
-                ]
-            }
+    const team = await Team.findOne({
+        where: {
+            id: teamId
         },
-    }, "id")
+        // attributes: ['id']
+    });
     if (!team) {
         return {
             status: 408,
             msg: '应用不存在或您没有权限执行该操作'
         }
     }
-    var app = await Miniapp.findOne({ id: appId, ownerId: team.id })
+    const app = await Miniapp.findOne({
+        where: { id: appId, ownerId: team.id }
+    })
     if (!app) {
         return {
             status: 408,
@@ -400,34 +401,40 @@ async function appInTeamAndUserIsManager(appId, teamId, userId) {
 }
 
 async function appAndUserInTeam(appId, teamId, userId) {
-    var team = await Team.findOne({
-        id: teamId,
-        members: {
-            $elemMatch: {
-                id: userId
-            }
-        },
-    }, "id")
-    var app = await App.find({ id: appId, ownerId: team.id })
+    const team = await Team.findOne({
+        where: {
+            id: teamId,
+            creatorId: userId
+        }
+    });
+    const app = await App.find({
+        where: { id: appId, ownerId: team.id }
+    })
     if (!app) {
-        throw new Error("应用不存在或您不在该团队中")
+        return {
+            status: 408,
+            msg: '应用不存在或您不在该团队中'
+        }
     } else {
         return app
     }
 }
 
 async function userInTeam(appId, teamId, userId) {
-    var team = await Team.findOne({
-        id: teamId,
-        members: {
-            $elemMatch: {
-                id: userId
-            }
-        },
-    }, "id")
-    var app = await App.findOne({ id: id, ownerId: team.id })
+    const team = await Team.findOne({
+        where: {
+            id: teamId,
+            creatorId: userId
+        }
+    });
+    const app = await App.findOne({
+        where: { id: id, ownerId: team.id }
+    })
     if (!app) {
-        throw new Error("应用不存在或您不在该团队中")
+        return {
+            status: 408,
+            msg: '应用不存在或您不在该团队中'
+        }
     } else {
         return app
     }

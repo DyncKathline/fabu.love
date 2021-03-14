@@ -20,6 +20,7 @@ const { Op } = require("sequelize");
 const App = require('../model/app');
 const Version = require('../model/version');
 const Team = require('../model/team');
+const TeamMembers = require("../model/team_members");
 const GrayStrategy = require('../model/gray_strategy');
 const AppDownload = require('../model/app_download');
 
@@ -263,21 +264,23 @@ module.exports = class AppRouter {
         versionId: { type: 'string', description: '版本id' }
     })
     static async getAppVersionDetail(ctx, next) {
-        //todo: 好像暂时用不上
-
         const user = ctx.state.user.data;
         const { teamId, id, versionId } = ctx.validatedParams;
-        const team = await Team.findOne({
-            id: teamId,
-            members: {
-                $elemMatch: { username: user.username }
+        const team = await TeamMembers.findOne({
+            where: {
+                teamId: teamId,
+                userId: user.id
             }
         });
         if (!team) {
             ctx.body = responseWrapper(false, "没有权限查看该应用");
             return;
         }
-        const version = await Version.findById(versionId);
+        const version = await Version.findOne({
+            where: {
+                id: versionId
+            }
+        });
         if (!version) {
             ctx.body = responseWrapper(false, "应用不存在");
             return;
@@ -538,14 +541,16 @@ module.exports = class AppRouter {
     @summary("检查版本更新")
     @tag
     @path({
-        teamID: String,
+        ownerID: String,
         bundleID: String,
         currentVersionCode: String,
         platform: String
     })
     static async checkUpdate(ctx, next) {
-        const { teamID, bundleID, currentVersionCode, platform } = ctx.validatedParams;
-        let app = await App.findOne({ bundleId: bundleID, ownerId: teamID, platform: platform })
+        const { ownerID, bundleID, currentVersionCode, platform } = ctx.validatedParams;
+        const app = await App.findOne({
+            where: { bundleId: bundleID, ownerId: ownerID, platform: platform }
+        })
         if (!app) {
             ctx.body = responseWrapper(false, "应用不存在或您没有权限执行该操作");
             return;
@@ -556,10 +561,15 @@ module.exports = class AppRouter {
         //1.拿出最新的version 最新的非灰度版本
 
         // 最新的灰度版本
-        let lastestGrayVersion = await Version.findOne({ id: app.grayReleaseVersionId })
+        let lastestGrayVersion = await Version.findOne({
+            where: {
+                id: app.grayReleaseVersionId
+            }
+        })
 
-        // let version = await Version.findOne({ appId: app.id })
-        let normalVersion = await Version.findOne({ id: app.releaseVersionId })
+        const normalVersion = await Version.findOne({
+            where: { id: app.releaseVersionId }
+        })
 
         let version = normalVersion
 
@@ -726,9 +736,13 @@ module.exports = class AppRouter {
     @tag
     @path({ appid: { type: 'string', require: true }, versionId: { type: 'string', require: true } })
     static async getAppPlist(ctx, next) {
-        var { appid, versionId } = ctx.validatedParams
-        var app = await App.findOne({ id: appid })
-        var version = await Version.findOne({ id: versionId })
+        const { appid, versionId } = ctx.validatedParams
+        const app = await App.findOne({
+            where: { id: appid }
+        })
+        const version = await Version.findOne({
+            where: { id: versionId }
+        })
 
         if (!app) {
             ctx.body = responseWrapper(false, "应用不存在");
@@ -739,11 +753,11 @@ module.exports = class AppRouter {
             return;
         }
 
-        var url = `${config.baseUrl}/${version.downloadUrl}`
+        let url = `${config.baseUrl}/${version.downloadUrl}`
 
-        var result = fs.readFileSync(fpath.join(__dirname, "..", 'templates') + '/template.plist')
-        var template = result.toString();
-        var rendered = mustache.render(template, {
+        let result = fs.readFileSync(fpath.join(__dirname, "..", 'templates') + '/template.plist')
+        let template = result.toString();
+        let rendered = mustache.render(template, {
             appName: app.appName,
             bundleID: app.bundleId,
             versionStr: version.versionStr,

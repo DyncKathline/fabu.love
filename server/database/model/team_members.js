@@ -21,6 +21,15 @@ module.exports = app => {
       autoIncrement: false,
       comment: null,
       field: "userId"
+    },
+    role: {
+      type: DataTypes.INTEGER(11),
+      allowNull: false,
+      defaultValue: "1",
+      primaryKey: false,
+      autoIncrement: false,
+      comment: "teams表id",
+      field: "role"
     }
   };
   const options = {

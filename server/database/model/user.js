@@ -76,6 +76,15 @@ module.exports = app => {
       comment: "职业",
       field: "career"
     },
+    apiToken: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: null,
+      primaryKey: false,
+      autoIncrement: false,
+      comment: null,
+      field: "apiToken"
+    },
     createTime: {
       type: DataTypes.BIGINT,
       allowNull: false,

@@ -42,18 +42,15 @@ const config = {
         keyPrefix: process.env.FABU_DB_HOST || "kath",
     },
 
-    emailService: process.env.FABU_EMAIL_SERVICE || "qq", //邮件相关配置 用于找回密码和邀请团队成员发送邮件
-    emailUser: process.env.FABU_EMAIL_USER || "",
-    emailPass: process.env.FABU_EMAIL_PASS || "",
-    emailPort: process.env.FABU_EMAIL_PORT || "587",
+    email: {
+        host: process.env.FABU_EMAIL_HOST || "smtp.163.com", //邮件相关配置 用于找回密码和邀请团队成员发送邮件
+        user: process.env.FABU_EMAIL_USER || "xiongxuesong93@163.com",
+        pass: process.env.FABU_EMAIL_PASS || "BTGJBKPUTFTBIHAZ",
+        port: process.env.FABU_EMAIL_PORT || "465",
+        secure: process.env.FABU_EMAIL_SECURE || "true",
+    },
 
     allowRegister: boolConfig(process.env.FABU_ALLOW_REGISTER || "true"), //是否允许用户注册,为否则后端注册接口不可用
-
-    openLdap: boolConfig(process.env.FABU_ALLOW_LDAP || "false"), //是否开启ldap 默认是false 如果公司没有ldap服务可以不用理会
-    ldapServer: process.env.FABU_LDAP_URL || "", //ldap server url
-    ldapUserDn: process.env.FABU_LDAP_USERDN || "", //ldap管理员dn 也就是管理员用户名
-    ldapBindCredentials: process.env.FABU_LDAP_CREDENTIALS || "", //ldap管理员密码
-    ldapBase: process.env.FABU_LDAP_BASE || "", //ldap base
 };
 
 function boolConfig(str) {

@@ -1,11 +1,10 @@
 'use strict';
 
 const { request, summary, tags, body, description } = require('../swagger');
-const sequelize = require('../helper/sequelize');
+const { Op } = require("sequelize");
 const User = require("../model/user");
 const Team = require("../model/team");
 const Teams = require("../model/teams");
-const UserInTeam = require("../model/user_team");
 const TeamMembers = require("../model/team_members");
 const { responseWrapper } = require("../helper/util");
 const bcrypt = require("bcryptjs");
@@ -59,9 +58,9 @@ module.exports = class AuthRouter {
         });
         if (user) {
             // var key = await bcrypt.hash(user.email, 10)
-            var md5 = crypto.createHash('md5');
-            var salt = user.email + Date();
-            var key = md5.update(user.email + salt).digest('hex');
+            const md5 = crypto.createHash('md5');
+            const salt = user.email + Date();
+            const key = md5.update(user.email + salt).digest('hex');
             const row = await User.update({ apiToken: key }, {
                 where: {
                     id: user.id
@@ -81,42 +80,13 @@ module.exports = class AuthRouter {
         const { caches } = ctx;
         const { body } = ctx.request;
         console.log("login", body);
-        // 判断是否开放 ldap，如果开放ldap, 
-        // 根据ldap的用户信息生成新用户
-        if (config.openLdap) {
-            // let auth = await Ldap.auth(body.username, body.password)
-            let ldapUser = await Ldap.auth(body.username, body.password).catch((error) => {
-                console.log(error);
-            })
-            let user = await User.findOne({ username: body.username });
-            if (ldapUser && ((!user) || user.username !== ldapUser.name)) {
-                console.log('user' + ldapUser);
-                let password = await bcrypt.hash(body.password, 10);
-                let newUser = new User({ username: ldapUser.name, password: password, email: ldapUser.mail });
-                let team = new Team();
-                team.id = newUser.id;
-                team.name = "我的团队";
-                team.creatorId = newUser.id;
-                team.members = [{
-                    id: newUser.id,
-                    username: newUser.username,
-                    email: newUser.email,
-                    role: caches.Teams[1].name//"owner"
-                }];
-                newUser.teams = [{
-                    id: team.id,
-                    name: team.name,
-                    role: caches.Teams[1].name//"owner"
-                }];
-                let task = Fawn.Task();
-                let result = await task
-                    .save(team)
-                    .save(newUser)
-                    .run({ useMongoose: true });
-            }
-        }
 
-        const user = await User.findOne({ username: body.username });
+        const user = await User.findOne({
+            where: {
+                username: body.username
+            },
+            // attributes: { exclude: ['password'] }
+        });
         if (user) {
             let valide = await bcrypt.compare(body.password, user.password);
             if (!valide) {
@@ -127,11 +97,57 @@ module.exports = class AuthRouter {
             ctx.body = responseWrapper(false, '用户不存在');
             return;
         }
-        const teams = await Team.findAll({
+        let teams = await Team.findAll({
             where: {
                 creatorId: user.id
             }
         });
+        let teamMembers = await TeamMembers.findAll({
+            where: {
+                userId: user.id
+            }
+        })
+        let userIds = [];
+        teamMembers.forEach((value) => {
+            if (userIds.indexOf(value.userId) === -1) {
+                userIds.push(value.userId);
+            }
+        });
+        const userList = await User.findAll({
+            where: {
+                id: {
+                    [Op.or]: userIds
+                }
+            },
+            attributes: { exclude: ['password'] }
+        });
+        //给成员列表补充用户信息
+        teamMembers.forEach((value) => {
+            userList.every((item) => {
+                if (value.userId == item.id) {
+                    value.username = item.username;
+                    const teams = caches.Teams.filter((o) => o.id == value.role);
+                    if(teams && teams.length > 0) {
+                        value.roleName = caches.Teams.filter((o) => o.id == value.role)[0].name;
+                    }else{
+                        value.roleName = "";
+                    }
+                    
+                    return false;
+                }
+            })
+
+        });
+        //给团队列表补充成员信息
+        teams.forEach((value) => {
+            value.members = [];
+            teamMembers.every((item) => {
+                if(value.id == item.teamId) {
+                    value.members.push(item);
+                }
+            });
+        });
+
         user.teams = teams;
         user.token = jwt.sign({
             data: {
@@ -149,6 +165,7 @@ module.exports = class AuthRouter {
     @body(registerSchema)
     @tag
     static async register(ctx, next) {
+        const { caches } = ctx;
         let { body } = ctx.request;
         if (!config.allowRegister) {
             // throw new Error("不允许注册用户.");
@@ -157,46 +174,41 @@ module.exports = class AuthRouter {
         }
         body.password = await bcrypt.hash(body.password, 10); // 10是 hash加密的级别, 默认是10，数字越大加密级别越高
         const now = Date.now();
-        let user = await User.findOne({ username: body.username });
+        let user = await User.findOne({
+            where: { username: body.username }
+        });
         if (!user) {
             let newUser = body;
 
-            try {
-                const result = await sequelize.transaction(async (t) => {
-                    newUser.createTime = now;
+            newUser.createTime = now;
 
-                    const { id } = await User.create(newUser, { transaction: t });
+            const { id } = await User.create(newUser);
 
-                    newUser.id = id;
-                    let team = {};
-                    team.id = newUser.id;
-                    team.name = "我的团队";
-                    team.creatorId = newUser.id;
-                    team.createTime = now;
-                    const { id: teamId } = await Team.create(team, { transaction: t });
+            newUser.id = id;
+            let team = {};
+            team.name = "我的团队";
+            team.creatorId = newUser.id;
+            team.role = caches.Teams[0].id
+            team.state = 1
+            team.createTime = now;
+            const { id: teamId } = await Team.create(team);
 
-                    await UserInTeam.create({userId: id, teamId: teamId});
-                    
-                    team.members = [{
-                        id: newUser.id,
-                        username: newUser.username,
-                        email: newUser.email,
-                        role: caches.Teams[1].name//"owner"
-                    }];
-                    const team_members = await TeamMembers.bulkCreate([{ teamId: teamId, userId: id }], { transaction: t });
+            team.members = [{
+                id: newUser.id,
+                username: newUser.username,
+                email: newUser.email,
+                role: caches.Teams[0].id,
+                roleName: caches.Teams[0].name//"owner"
+            }];
+            //批量插入
+            const team_members = await TeamMembers.bulkCreate([{ teamId: teamId, userId: id, role: team.role }]);
 
-                    newUser.teams = [{
-                        id: team.id,
-                        name: team.name,
-                        role: caches.Teams[1].name//"owner"
-                    }];
-                    return newUser;
-                });
-            } catch (error) {
-                console.error(error);
-                ctx.body = responseWrapper(false, "注册失败");
-                return;
-            }
+            newUser.teams = [{
+                id: team.id,
+                name: team.name,
+                role: caches.Teams[0].id,
+                roleName: caches.Teams[0].name//"owner"
+            }];
             ctx.body = responseWrapper(newUser);
         } else {
             ctx.body = responseWrapper(false, "用户已存在");
@@ -289,18 +301,18 @@ module.exports = class AuthRouter {
     @summary('获取用户资料')
     @tag
     static async getUserInfo(ctx, next) {
-        var user = ctx.state.user.data
-        var user = await User.findOne({
+        const user = ctx.state.user.data
+        const userInfo = await User.findOne({
             where: {
                 id: user.id
             },
-            attributes: {exclude: ["password"]}
+            attributes: { exclude: ["password"] }
         });
-        if (!user) {
+        if (!userInfo) {
             // throw new Error("用户不存在");
             ctx.body = responseWrapper(false, "用户不存在");
-        }else {
-            ctx.body = responseWrapper(user);
+        } else {
+            ctx.body = responseWrapper(userInfo);
         }
     }
 
@@ -308,6 +320,7 @@ module.exports = class AuthRouter {
     @summary('获取用户团队列表')
     @tag
     static async getuserTeams(ctx, next) {
+        const { caches } = ctx;
         const userObj = ctx.state.user.data
         let user = await User.findOne({
             where: {
@@ -324,10 +337,10 @@ module.exports = class AuthRouter {
                     creatorId: user.id
                 }
             });
-            const teamTypes = await Teams.findAll();
+            const teamTypes = caches.Teams;
             teams.forEach(element => {
                 teamTypes.every(ele => {
-                    if(ele.id == element.role) {
+                    if (ele.id == element.role) {
                         element.roleName = ele.name;
                         return false;
                     }
@@ -350,24 +363,31 @@ module.exports = class AuthRouter {
         }
     })
     static async resetPassword(ctx, next) {
-        var body = ctx.request.body
+        const body = ctx.request.body
 
-        var user = await User.findOne({
-            email: body.email
-        }, "-teams -password");
+        const user = await User.findOne({
+            where: {
+                email: body.email
+            },
+            attributes: { exclude: ['password'] }
+        });
         if (!user) {
             throw new Error("邮箱有误,没有该用户");
         }
 
-        var newPassword = Math
+        const newPassword = Math
             .random()
             .toString(36)
             .substring(2, 5) + Math
                 .random()
                 .toString(36)
                 .substring(2, 5);
-        var hashPassword = await bcrypt.hash(newPassword, 10); // 10是 hash加密的级别, 默认是10，数字越大加密级别越高
-        await User.findByIdAndUpdate(user.id, { password: hashPassword })
+        const hashPassword = await bcrypt.hash(newPassword, 10); // 10是 hash加密的级别, 默认是10，数字越大加密级别越高
+        await User.update({ password: hashPassword }, {
+            where: {
+                id: user.id
+            }
+        });
         Mail.send([body.email], "爱发布密码重置邮件", `您的密码已重置${newPassword}`)
         ctx.body = responseWrapper("密码已重置,并通过邮件发送到您的邮箱")
     }

@@ -1,7 +1,7 @@
 'use strict';
 
-import nodemailer from 'nodemailer';
-import config from '../config'
+const nodemailer = require('nodemailer');
+const { email: config } = require('../config')
 
 module.exports = class Mail {
 
@@ -13,15 +13,16 @@ module.exports = class Mail {
     static async send(emails, subject, content) {
         const email = (emails instanceof Array) ? emails.reduce((pv, cv) => { return pv + "," + cv }) : emails
         let transporter = nodemailer.createTransport({
-            host: config.emailService,
-            port: config.emailPort,
+            host: config.host,
+            port: config.port,
+            secure: config.psecure,
             auth: {
-                user: config.emailUser,
-                pass: config.emailPass
+                user: config.user,
+                pass: config.pass
             }
         })
         let mailOptions = {
-            from: `app-publisher<${config.emailUser}>`,
+            from: `app-publisher<${config.user}>`,
             to: email,
             subject: subject,
             html: content

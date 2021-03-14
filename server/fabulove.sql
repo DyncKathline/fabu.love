@@ -10,7 +10,7 @@ Target Server Type    : MYSQL
 Target Server Version : 50726
 File Encoding         : 65001
 
-Date: 2021-03-02 10:01:43
+Date: 2021-03-14 00:51:36
 */
 
 SET FOREIGN_KEY_CHECKS=0;
@@ -48,7 +48,11 @@ CREATE TABLE `app` (
   `createTime` bigint(20) NOT NULL,
   `updateTime` bigint(20) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=4 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Records of app
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for app_download
@@ -60,6 +64,10 @@ CREATE TABLE `app_download` (
   `data` bigint(20) NOT NULL,
   PRIMARY KEY (`appId`,`versionId`,`data`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Records of app_download
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for download_code_image
@@ -76,6 +84,10 @@ CREATE TABLE `download_code_image` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 -- ----------------------------
+-- Records of download_code_image
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for gray_strategy
 -- ----------------------------
 DROP TABLE IF EXISTS `gray_strategy`;
@@ -89,6 +101,10 @@ CREATE TABLE `gray_strategy` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 -- ----------------------------
+-- Records of gray_strategy
+-- ----------------------------
+
+-- ----------------------------
 -- Table structure for ip_type
 -- ----------------------------
 DROP TABLE IF EXISTS `ip_type`;
@@ -97,6 +113,12 @@ CREATE TABLE `ip_type` (
   `name` varchar(32) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Records of ip_type
+-- ----------------------------
+INSERT INTO `ip_type` VALUES ('1', 'black');
+INSERT INTO `ip_type` VALUES ('2', 'white');
 
 -- ----------------------------
 -- Table structure for message
@@ -113,6 +135,10 @@ CREATE TABLE `message` (
   `data` varchar(255) NOT NULL DEFAULT '' COMMENT '消息中带有的data字段',
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Records of message
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for miniapp
@@ -145,7 +171,11 @@ CREATE TABLE `miniapp` (
   `createTime` bigint(20) NOT NULL,
   `updateTime` bigint(20) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Records of miniapp
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for status
@@ -158,6 +188,12 @@ CREATE TABLE `status` (
 ) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=utf8;
 
 -- ----------------------------
+-- Records of status
+-- ----------------------------
+INSERT INTO `status` VALUES ('1', 'unread');
+INSERT INTO `status` VALUES ('2', 'hasread');
+
+-- ----------------------------
 -- Table structure for team
 -- ----------------------------
 DROP TABLE IF EXISTS `team`;
@@ -167,9 +203,14 @@ CREATE TABLE `team` (
   `name` varchar(32) NOT NULL DEFAULT '',
   `creatorId` int(11) NOT NULL COMMENT 'user表id',
   `role` int(11) NOT NULL DEFAULT '1' COMMENT 'teams表id',
+  `status` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否是默认创建，不可删除；0：不是默认 1：默认',
   `createTime` bigint(20) NOT NULL,
   PRIMARY KEY (`id`,`creatorId`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Records of team
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for teams
@@ -182,14 +223,26 @@ CREATE TABLE `teams` (
 ) ENGINE=MyISAM AUTO_INCREMENT=4 DEFAULT CHARSET=utf8;
 
 -- ----------------------------
+-- Records of teams
+-- ----------------------------
+INSERT INTO `teams` VALUES ('1', 'owner');
+INSERT INTO `teams` VALUES ('2', 'manager');
+INSERT INTO `teams` VALUES ('3', 'guest');
+
+-- ----------------------------
 -- Table structure for team_members
 -- ----------------------------
 DROP TABLE IF EXISTS `team_members`;
 CREATE TABLE `team_members` (
   `teamId` int(11) NOT NULL,
   `userId` int(11) NOT NULL,
+  `role` int(11) NOT NULL DEFAULT '1' COMMENT 'teams表id',
   PRIMARY KEY (`teamId`,`userId`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Records of team_members
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for update_mode
@@ -200,6 +253,13 @@ CREATE TABLE `update_mode` (
   `name` varchar(12) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=4 DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Records of update_mode
+-- ----------------------------
+INSERT INTO `update_mode` VALUES ('1', 'silent');
+INSERT INTO `update_mode` VALUES ('2', 'normal');
+INSERT INTO `update_mode` VALUES ('3', 'force');
 
 -- ----------------------------
 -- Table structure for user
@@ -216,17 +276,11 @@ CREATE TABLE `user` (
   `career` varchar(32) NOT NULL DEFAULT '' COMMENT '职业',
   `createTime` bigint(20) NOT NULL DEFAULT '0' COMMENT '创建时间',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 -- ----------------------------
--- Table structure for user_team
+-- Records of user
 -- ----------------------------
-DROP TABLE IF EXISTS `user_team`;
-CREATE TABLE `user_team` (
-  `userId` int(11) NOT NULL,
-  `teamId` int(11) NOT NULL,
-  PRIMARY KEY (`userId`,`teamId`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 -- ----------------------------
 -- Table structure for version
@@ -256,3 +310,7 @@ CREATE TABLE `version` (
   `uploadTime` bigint(20) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Records of version
+-- ----------------------------

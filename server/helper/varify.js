@@ -6,13 +6,21 @@ export default class Varify {
 
     static async auth(key) {
         if (key) {
-            var user = await User.findOne({ apiToken: key })
+            const user = await User.findOne({
+                where: { apiToken: key }
+            })
             if (!user) {
-                throw new Error('api token is not exist')
+                return {
+                    status: 408,
+                    msg: 'api token is not exist'
+                }
             }
             return user
         } else {
-            throw new Error('api token is not exist')
+            return {
+                status: 408,
+                msg: 'api token is not exist'
+            }
         }
     }
 
