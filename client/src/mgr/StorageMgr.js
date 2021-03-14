@@ -1,17 +1,15 @@
 export default class StorageMgr {
-
-  static getItem (key, defaultValue) {
-    var value = localStorage.getItem(key)
+  static getItem(key, defaultValue) {
+    var value = localStorage.getItem(key);
     if (value) {
-      return JSON.parse(value)
+      return JSON.parse(value);
     } else if (defaultValue) {
-      return defaultValue
+      return defaultValue;
     }
-    return null
+    return null;
   }
 
-  static setItem (key, value) {
-    localStorage.setItem(key, JSON.stringify(value))
+  static setItem(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
   }
-
 }

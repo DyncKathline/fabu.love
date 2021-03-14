@@ -274,6 +274,7 @@ CREATE TABLE `user` (
   `qq` varchar(12) NOT NULL DEFAULT '',
   `company` varchar(64) NOT NULL DEFAULT '' COMMENT '公司',
   `career` varchar(32) NOT NULL DEFAULT '' COMMENT '职业',
+  `apiToken` varchar(32) NOT NULL DEFAULT '' COMMENT '',
   `createTime` bigint(20) NOT NULL DEFAULT '0' COMMENT '创建时间',
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;

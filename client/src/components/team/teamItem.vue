@@ -1,26 +1,44 @@
 <template>
   <div class="teamItem">
     <div>
-      <div class="teamItem-circle" :class="color">{{lastName}}</div>
-      <label class="teamItem-name">{{value.username}}</label>
-      <div class="teamItem-email">| {{value.email}}</div>
+      <div class="teamItem-circle" :class="color">{{ lastName }}</div>
+      <label class="teamItem-name">{{ value.username }}</label>
+      <div class="teamItem-email">| {{ value.email }}</div>
     </div>
     <div class="teamItem-owner" @click.stop="roleAction">
-      <label>{{ownerString}}</label>
-      <img v-show="isRole" class="teamItem-owner-img" :style="iconStyle" src="../../assets/ic_moreqx.png"/>
+      <label>{{ ownerString }}</label>
+      <img
+        v-show="isRole"
+        class="teamItem-owner-img"
+        :style="iconStyle"
+        src="../../assets/ic_moreqx.png"
+      />
     </div>
-    <context-menu class="ctx-menu" @ctx-cancel="onCtxClose" @ctx-close="onCtxClose" ref="ctxMenu">
-        <li class="ctx-item" v-if="(isManager || !isSelf)" @click="setRoleToManager">管理员</li>
-        <li class="ctx-item" v-if="(isManager || !isSelf)" @click="setRoleToGuest">围观群众</li>
-        <li class="ctx-item menu-item" @click="selected">{{lastItem}}</li>
+    <context-menu
+      class="ctx-menu"
+      @ctx-cancel="onCtxClose"
+      @ctx-close="onCtxClose"
+      ref="ctxMenu"
+    >
+      <li
+        class="ctx-item"
+        v-if="isManager || !isSelf"
+        @click="setRoleToManager"
+      >
+        管理员
+      </li>
+      <li class="ctx-item" v-if="isManager || !isSelf" @click="setRoleToGuest">
+        围观群众
+      </li>
+      <li class="ctx-item menu-item" @click="selected">{{ lastItem }}</li>
     </context-menu>
   </div>
 </template>
 
 <script>
-import * as useMgr from '../../mgr/userMgr'
-import * as TeamApi from '../../api/moudle/teamApi'
-import contextMenu from 'vue-context-menu'
+import * as useMgr from "../../mgr/userMgr";
+import * as TeamApi from "../../api/moudle/teamApi";
+import contextMenu from "vue-context-menu";
 
 export default {
   props: {
@@ -29,108 +47,108 @@ export default {
   },
   data() {
     return {
-      color: 'header-background-red',
+      color: "header-background-red",
       isRole: false,
       rotate: false,
       isSelf: false,
       isManager: false,
       showMenu: false,
-      align: 'left'
-    }
+      align: "left"
+    };
   },
   created() {
-    this.valueChanged()
+    this.valueChanged();
     // this.itemStyle = isSelf ? 'disable' : ''
   },
   methods: {
     selected() {
-      this.$emit('select', this.index)
-      this.showMenu = false
+      this.$emit("select", this.index);
+      this.showMenu = false;
     },
     roleAction() {
       if (this.isRole) {
-        this.rotate = !this.rotate
-        this.$refs.ctxMenu.open()
-        this.showMenu = true
+        this.rotate = !this.rotate;
+        this.$refs.ctxMenu.open();
+        this.showMenu = true;
       }
     },
     setRoleToManager() {
-      this.roleModify('manager')
-      this.showMenu = false
+      this.roleModify("manager");
+      this.showMenu = false;
     },
     setRoleToGuest() {
-      this.roleModify('guest')
-      this.showMenu = false
+      this.roleModify("guest");
+      this.showMenu = false;
     },
     roleModify(value) {
-      let teamId = useMgr.getUserTeam().id
-      let memberId = this.value.id
-      let role = value
+      let teamId = useMgr.getUserTeam().id;
+      let memberId = this.value.id;
+      let role = value;
       TeamApi.modifyRole(teamId, memberId, role).then(resp => {
         this.$message({
           message: resp.message,
-          type: resp.success ? 'success' : 'error'
-        })
-        this.$emit('roleUpdate')
-      })
+          type: resp.success ? "success" : "error"
+        });
+        this.$emit("roleUpdate");
+      });
     },
     onCtxClose() {
-      this.showMenu = false
+      this.showMenu = false;
     },
     valueChanged() {
       // alert('changed')
-      let randomNumber = Math.floor(Math.random() * Math.floor(4))
-      this.isSelf = useMgr.getUserId() === this.value.id
+      let randomNumber = Math.floor(Math.random() * Math.floor(4));
+      this.isSelf = useMgr.getUserId() === this.value.id;
       // alert(this.isSelf ? '是自己' : '不是自己')
-      this.isManager = useMgr.getUserTeam().roleName !== 'guest'
+      this.isManager = useMgr.getUserTeam().roleName !== "guest";
       // alert(this.isManager ? '是管理者' : '不是管理者')
       this.isRole =
-        (this.isManager || this.isSelf) && this.value.roleName !== 'owner'
+        (this.isManager || this.isSelf) && this.value.roleName !== "owner";
       this.color = [
-        'header-background-red',
-        'header-background-green',
-        'header-background-orange',
-        'header-background-purple'
-      ][randomNumber]
+        "header-background-red",
+        "header-background-green",
+        "header-background-orange",
+        "header-background-purple"
+      ][randomNumber];
     }
   },
   computed: {
     lastName() {
-      let length = this.value.username.length
-      return this.value.username.substring(length - 1)
+      let length = this.value.username.length;
+      return this.value.username.substring(length - 1);
     },
     ownerString() {
       switch (this.value.roleName) {
-        case 'owner':
-          return '创建者'
-        case 'manager':
-          return '管理员'
+        case "owner":
+          return "创建者";
+        case "manager":
+          return "管理员";
         default:
-          return '围观群众'
+          return "围观群众";
       }
     },
     lastItem() {
-      return this.isSelf ? '离开该团队' : '移除该队员'
+      return this.isSelf ? "离开该团队" : "移除该队员";
     },
     iconStyle() {
       return this.showMenu
-        ? { transform: 'rotate(180deg)' }
-        : { transform: 'rotate(0deg)' }
+        ? { transform: "rotate(180deg)" }
+        : { transform: "rotate(0deg)" };
     }
   },
   watch: {
     value() {
-      this.valueChanged()
+      this.valueChanged();
     }
   },
   components: {
     contextMenu
   }
-}
+};
 </script>
 
 <style lang="scss">
-@import '../../common/scss/base.scss';
+@import "../../common/scss/base.scss";
 
 .teamItem {
   position: relative;
@@ -212,4 +230,3 @@ export default {
   background-color: rgb(143, 56, 170);
 }
 </style>
-

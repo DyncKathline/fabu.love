@@ -1,0 +1,3 @@
+NODE_ENV = 'production'
+VUE_APP_FABU_ALLOW_REGISTER = false
+VUE_APP_FABU_BASE_URL = 'http://192.168.1.178:9898'

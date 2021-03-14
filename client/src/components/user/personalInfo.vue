@@ -18,7 +18,7 @@
   </div>
 </template>
 
-<script type="text/ecmascript-6">
+<script">
   import * as UserApi from '../../api/moudle/userApi'
   import utils from '../../common/js/utils'
 
