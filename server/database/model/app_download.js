@@ -5,7 +5,7 @@ module.exports = app => {
   const sequelize = app.model;
   const attributes = {
     appId: {
-      type: DataTypes.INTEGER(11),
+      type: DataTypes.STRING(32),
       allowNull: false,
       defaultValue: null,
       primaryKey: true,
@@ -14,7 +14,7 @@ module.exports = app => {
       field: "appId"
     },
     versionId: {
-      type: DataTypes.INTEGER(11),
+      type: DataTypes.STRING(32),
       allowNull: false,
       defaultValue: null,
       primaryKey: true,

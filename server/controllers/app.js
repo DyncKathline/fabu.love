@@ -798,10 +798,11 @@ module.exports = class AppRouter {
         }
 
         let todayCount = 1;
-        let nowDate = new Date();
-        if (new Date(app.todayDownloadCount.date).toDateString() == nowDate.toDateString()) {
-            todayCount = app.todayDownloadCount + 1
-        }
+        let now = Date.now();
+        // let nowDate = new Date();
+        // if (new Date(app.todayDownloadCount.date).toDateString() == nowDate.toDateString()) {
+        //     todayCount = app.todayDownloadCount + 1
+        // }
         let appTotalCount = 1;
         if (app.totalDownloadCount) {
             appTotalCount = app.totalDownloadCount + 1
@@ -814,7 +815,7 @@ module.exports = class AppRouter {
                 id: appid
             }
         });
-        const appDownloadRow = await AppDownload.create({ appId: appid, versionId: versionId, data: nowDate.getTime() });
+        const appDownloadRow = await AppDownload.create({ appId: appid, versionId: versionId, data: now });
         let versionCount = 1;
         if (version.downloadCount) {
             versionCount = version.downloadCount + 1;

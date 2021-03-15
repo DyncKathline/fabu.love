@@ -10,7 +10,7 @@ Target Server Type    : MYSQL
 Target Server Version : 50726
 File Encoding         : 65001
 
-Date: 2021-03-15 11:28:28
+Date: 2021-03-15 11:51:07
 */
 
 SET FOREIGN_KEY_CHECKS=0;
@@ -21,7 +21,7 @@ SET FOREIGN_KEY_CHECKS=0;
 DROP TABLE IF EXISTS `app`;
 CREATE TABLE `app` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `appId` varchar(64) NOT NULL,
+  `appId` varchar(32) NOT NULL,
   `platform` varchar(16) NOT NULL DEFAULT '',
   `bundleId` varchar(64) NOT NULL DEFAULT '',
   `bundleName` varchar(32) NOT NULL DEFAULT '',
@@ -48,19 +48,20 @@ CREATE TABLE `app` (
   `createTime` bigint(20) NOT NULL,
   `updateTime` bigint(20) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
 
 -- ----------------------------
 -- Records of app
 -- ----------------------------
+INSERT INTO `app` VALUES ('1', '39652d61966f4701ba1e0aff8bff1995', 'android', 'com.innogx.launcher', '', '国翔创新教学设备', '4', '2', 'admin', 'upload\\2\\icon\\com.innogx.launcher_1.4_4_a.png', '', 'xstdd6', '0', '0', '', '', '2', '', '1', '0', '0', '0', '3', '3', '0', '1615779312179', '1615779312179');
 
 -- ----------------------------
 -- Table structure for app_download
 -- ----------------------------
 DROP TABLE IF EXISTS `app_download`;
 CREATE TABLE `app_download` (
-  `appId` int(11) NOT NULL,
-  `versionId` int(11) NOT NULL,
+  `appId` varchar(32) NOT NULL,
+  `versionId` varchar(32) NOT NULL,
   `data` bigint(20) NOT NULL,
   PRIMARY KEY (`appId`,`versionId`,`data`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
@@ -207,13 +208,11 @@ CREATE TABLE `team` (
   `status` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否是默认创建，不可删除；0：不是默认 1：默认',
   `createTime` bigint(20) NOT NULL,
   PRIMARY KEY (`id`,`creatorId`)
-) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 -- ----------------------------
 -- Records of team
 -- ----------------------------
-INSERT INTO `team` VALUES ('1', '', '我的团队', '1', '1', '0', '1615775066420');
-INSERT INTO `team` VALUES ('2', '', '我的团队', '2', '1', '0', '1615775148038');
 
 -- ----------------------------
 -- Table structure for teams
@@ -246,9 +245,6 @@ CREATE TABLE `team_members` (
 -- ----------------------------
 -- Records of team_members
 -- ----------------------------
-INSERT INTO `team_members` VALUES ('1', '1', '1');
-INSERT INTO `team_members` VALUES ('2', '2', '1');
-INSERT INTO `team_members` VALUES ('2', '1', '2');
 
 -- ----------------------------
 -- Table structure for update_mode

@@ -355,7 +355,7 @@ body {
 .downloadBtn i:before {
   color: white;
 }
-.preview-mobilewrapper .qrcodeImg img {
+.preview-mobilewrapper .qrcodeImg {
   position: absolute;
   width: 150px;
   height: auto;
@@ -400,5 +400,14 @@ body {
   height: 100%;
   vertical-align: top;
   text-align: center;
+}
+@media screen and (max-width: 640px) {
+  .preview-middlewrapper {
+    margin-left: 0px;
+    width: 100%;
+  }
+  .preview-mobilewrapper {
+    display: none;
+  }
 }
 </style>
