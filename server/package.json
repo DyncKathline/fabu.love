@@ -8,6 +8,7 @@
         "build": "babel src -d sdist --source-maps",
         "preLaunchTask": "npm run build",
         "debug": "babel-node index.js",
+        "pm2": "pm2 start pm2.config.js --interpreter babel-node --env production",
         "dbload": "sequelize-automate -c ./database"
     },
     "keywords": [
@@ -46,7 +47,6 @@
         "mustache": "^2.3.0",
         "mysql2": "^2.2.5",
         "nodemailer": "^4.6.3",
-        "pm2": "^2.9.3",
         "redis": "^3.0.2",
         "sequelize": "^6.5.0",
         "uuid": "^3.2.1"

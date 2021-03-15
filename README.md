@@ -77,6 +77,12 @@ App is listening on 9898.
 redis connect success!
 =============>>end
 ```
+pm2运行[nodejs之使用babel支持es6和pm2下使用babel](https://blog.csdn.net/wushichao0325/article/details/85262063)
+```
+pm2 start pm2.config.js --interpreter babel-node
+或者执行
+npm run pm2
+```
 
 3.编译运行前端页面
 
