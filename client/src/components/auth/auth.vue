@@ -3,28 +3,33 @@
     <div class="user-left">
       <div class="user-logo"></div>
       <div class="user-divier"></div>
-      <div class="user-name">爱发布</div>
+      <div class="user-name">
+        <div class="content title">
+          {{title}}
+        </div>
+      </div>
 
-      <div
-        class="user-item"
-        style="margin-top: 24.87vh"
-        @click="clickSubItem('api')"
-      >
-        <span class="icon-ic_api_s"></span>
-        <p>API文档</p>
+      <div v-if="!hide" style="margin-top: 24.87vh">
+        <div
+          class="user-item"
+          @click="clickSubItem('api')">
+          <span class="icon-ic_api_s"></span>
+          <p>API文档</p>
+        </div>
+        <div class="user-item" @click="clickSubItem('help')">
+          <span class="icon-ic_help_s"></span>
+          <p>Help</p>
+        </div>
+        <div class="user-item" @click="clickSubItem('github')">
+          <span class="icon-ic_github_s"></span>
+          <p>Github</p>
+        </div>
+        <div class="user-item" @click="clickSubItem('about')">
+          <span class="icon-ic_about_s"></span>
+          <p>About</p>
+        </div>
       </div>
-      <div class="user-item" @click="clickSubItem('help')">
-        <span class="icon-ic_help_s"></span>
-        <p>Help</p>
-      </div>
-      <div class="user-item" @click="clickSubItem('github')">
-        <span class="icon-ic_github_s"></span>
-        <p>Github</p>
-      </div>
-      <div class="user-item" @click="clickSubItem('about')">
-        <span class="icon-ic_about_s"></span>
-        <p>About</p>
-      </div>
+      
     </div>
     <div class="user-right">
       <div class="user-login-panel">
@@ -99,14 +104,18 @@
 </template>
 
 <script>
-import * as LoginApi from "../../api/moudle/loginApi";
-import TokenMgr from "../../mgr/TokenMgr";
-import { saveUserInfo } from "../../mgr/userMgr";
-import utils from "../../common/js/utils";
+import * as LoginApi from "@/api/moudle/loginApi";
+import TokenMgr from "@/mgr/TokenMgr";
+import { saveUserInfo } from "@/mgr/userMgr";
+import utils from "@/common/js/utils";
+import { formatContent } from "@/common/animFont";
+import {title} from "@/config/settings";
 
 export default {
   data() {
     return {
+      title: "",
+      hide: true,
       username: "",
       password: "",
       isLogin: false,
@@ -116,8 +125,10 @@ export default {
       showLoading: false
     };
   },
-  created() {
-    this.$nextTick(() => {});
+  mounted() {
+    this.title = title;
+    const container = document.querySelector('.content');
+    formatContent(container, this.title)
   },
   components: {},
   methods: {
@@ -276,6 +287,10 @@ export default {
 <style lang="scss">
 @import "../../common/scss/base";
 
+.title {
+  text-align: center;
+  // padding: 30px 0 0;
+}
 .user {
   width: 100%;
   height: 100%;

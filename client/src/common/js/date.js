@@ -2,7 +2,7 @@
  * Created by tianyang on 2018/2/24.
  */
 
-export function dateFormat(date) {
+ export function dateFormat(date) {
   return format(date, "yyyy-MM-dd HH:mm:ss");
 }
 

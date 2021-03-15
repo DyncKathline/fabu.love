@@ -50,7 +50,7 @@ const config = {
         secure: process.env.FABU_EMAIL_SECURE || "true",
     },
 
-    allowRegister: boolConfig(process.env.FABU_ALLOW_REGISTER || "true"), //是否允许用户注册,为否则后端注册接口不可用
+    allowRegister: boolConfig(process.env.FABU_ALLOW_REGISTER || true), //是否允许用户注册,为否则后端注册接口不可用
 };
 
 function boolConfig(str) {

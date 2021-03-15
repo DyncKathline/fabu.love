@@ -11,7 +11,7 @@ module.exports = {
   baseURL,
   publicPath,
   prefix,
-  title: "爱发布",
+  title: "APP管理平台",
   //路由模式，可选值为 history 或 hash
   routerMode: "history",
   //不经过token校验的路由
