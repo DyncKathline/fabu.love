@@ -226,11 +226,17 @@ module.exports = class TeamRouter {
             Mail.send(dif, `${user.username}邀请您加入爱发布`, `${user.username}邀请您加入${team.name}"团队.如果您还没有注册爱发布，请点击 ${config.baseUrl} 注册`)
         }
 
+        const members = await TeamMembers.findAll({
+            where: {
+                teamId: teamId
+            }
+        })
         let teamList = []
         for (let u of userList) {
-            if (!(_.find(userList, function (o) {
-                return o.email == u.email
-            }))) {
+            const _list = _.find(members, function (o) {
+                return o.userId == u.id
+            });
+            if (!_list) {
                 let role = 3;
                 teamList.push({
                     teamId: teamId,
@@ -350,22 +356,19 @@ module.exports = class TeamRouter {
             attributes: { exclude: ['password'] }
         });
         userList.forEach((value) => {
-            members.every((item) => {
+            for(let i = 0; i < members.length; i++) {
+                let item = members[i];
                 if (value.id === item.userId) {
                     value.teamId = item.teamId;
                     value.role = item.role;
-                    return false;
+                    const teams = caches.Teams.filter((o) => o.id === item.role);
+                    value.roleName = "";
+                    if(teams && teams.length > 0) {
+                        value.roleName = teams[0].name;
+                    }
+                    break;
                 }
-            });
-        });
-        const teamTypes = caches.Teams;
-        userList.forEach(element => {
-            teamTypes.every(ele => {
-                if (ele.role == element.role) {
-                    element.roleName = ele.name;
-                    return false;
-                }
-            });
+            }
         });
         team.members = userList;
         ctx.body = responseWrapper(team);

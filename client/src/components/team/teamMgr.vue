@@ -132,6 +132,32 @@ export default {
       }
     };
   },
+  components: {
+    Item,
+    contextMenu
+  },
+  directives: {
+    focus: {
+      update(el, { value }) {
+        if (value) {
+          el.focus();
+        }
+      }
+    }
+  },
+  watch: {
+    members() {
+      let itemArr = this.members.filter(member => {
+        return member.id === useMgr.getUserId();
+      });
+      if (itemArr && itemArr.length > 0) {
+        this.isOwner = itemArr[0].role === "owner";
+      }
+    },
+    teamName() {
+      this.editName = this.teamName;
+    }
+  },
   mounted() {
     this.requestMembers();
     this.isOwner = useMgr.getUserTeam().role;
@@ -304,32 +330,6 @@ export default {
       return re.test(email);
     }
   },
-  components: {
-    Item,
-    contextMenu
-  },
-  directives: {
-    focus: {
-      update(el, { value }) {
-        if (value) {
-          el.focus();
-        }
-      }
-    }
-  },
-  watch: {
-    members() {
-      let itemArr = this.members.filter(member => {
-        return member.id === useMgr.getUserId();
-      });
-      if (itemArr && itemArr.length > 0) {
-        this.isOwner = itemArr[0].role === "owner";
-      }
-    },
-    teamName() {
-      this.editName = this.teamName;
-    }
-  }
 };
 </script>
 

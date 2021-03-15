@@ -1,7 +1,7 @@
 <template>
   <div class="teamItem">
     <div>
-      <div class="teamItem-circle" :class="color">{{ lastName }}</div>
+      <div class="teamItem-circle" :class="color">{{ firstName }}</div>
       <label class="teamItem-name">{{ value.username }}</label>
       <div class="teamItem-email">| {{ value.email }}</div>
     </div>
@@ -113,9 +113,9 @@ export default {
     }
   },
   computed: {
-    lastName() {
+    firstName() {
       let length = this.value.username.length;
-      return this.value.username.substring(length - 1);
+      return this.value.username.substring(0, 1);
     },
     ownerString() {
       switch (this.value.roleName) {

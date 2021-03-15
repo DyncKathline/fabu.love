@@ -123,7 +123,8 @@ module.exports = class AuthRouter {
         });
         //给成员列表补充用户信息
         teamMembers.forEach((value) => {
-            userList.every((item) => {
+            for(let i = 0; i < userList.length; i++) {
+                let item = userList[i];
                 if (value.userId == item.id) {
                     value.username = item.username;
                     const teams = caches.Teams.filter((o) => o.id == value.role);
@@ -132,20 +133,19 @@ module.exports = class AuthRouter {
                     }else{
                         value.roleName = "";
                     }
-                    
-                    return false;
+                    break;
                 }
-            })
-
+            }
         });
         //给团队列表补充成员信息
         teams.forEach((value) => {
             value.members = [];
-            teamMembers.every((item) => {
-                if(value.id == item.teamId) {
+            for(let i = 0; i < teamMembers.length; i++) {
+                let item = teamMembers[i];
+                if (value.userId == item.id) {
                     value.members.push(item);
                 }
-            });
+            }
         });
 
         user.teams = teams;
@@ -337,14 +337,12 @@ module.exports = class AuthRouter {
                     creatorId: user.id
                 }
             });
-            const teamTypes = caches.Teams;
             teams.forEach(element => {
-                teamTypes.every(ele => {
-                    if (ele.id == element.role) {
-                        element.roleName = ele.name;
-                        return false;
-                    }
-                });
+                const teams = caches.Teams.filter((o) => o.id === element.role);
+                element.roleName = "";
+                if(teams && teams.length > 0) {
+                    element.roleName = teams[0].name;
+                }
             });
 
             user.teams = teams;

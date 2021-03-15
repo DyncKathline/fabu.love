@@ -79,7 +79,7 @@ module.exports = app => {
     apiToken: {
       type: DataTypes.STRING(32),
       allowNull: false,
-      defaultValue: null,
+      defaultValue: "",
       primaryKey: false,
       autoIncrement: false,
       comment: null,
