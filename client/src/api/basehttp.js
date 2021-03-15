@@ -68,9 +68,9 @@ export function postHttp(url, body, params) {
 }
 
 export function configAxios() {
-//   console.log(process.env);
 //   console.log(window.location.origin);
   let baseUrl = process.env.VUE_APP_FABU_BASE_URL || window.location.origin;
+  // console.log('configAxios------', process.env.VUE_APP_FABU_BASE_URL, baseUrl);
 
   if (!baseUrl.endsWith("/")) {
     baseUrl += "/";

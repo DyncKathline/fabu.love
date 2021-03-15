@@ -11,11 +11,11 @@ const config = {
 
     sequelize: {
         dialect: "mysql",
-        database: "fabulove",
-        host: "127.0.0.1",
-        port: 3306,
-        username: "root",
-        password: "123456",
+        database: process.env.FABU_DB || "fabulove",
+        host: process.env.FABU_DB_HOST || "127.0.0.1",
+        port: process.env.FABU_DB_PORT || 3306,
+        username: process.env.FABU_DB_USER || "root",
+        password: process.env.FABU_DB_PASSWORD || "123456",
         query: { raw: true },
         define: {
             // 使用自己配置的表名，避免sequelize自动将表名转换为复数
@@ -35,11 +35,11 @@ const config = {
     },
 
     redis: {
-        host: process.env.FABU_DB_HOST || "127.0.0.1",
-        port: process.env.FABU_DB_HOST || "6379",
-        password: process.env.FABU_DB_HOST || "",
-        db: process.env.FABU_DB_HOST || "0",
-        keyPrefix: process.env.FABU_DB_HOST || "kath",
+        host: process.env.FABU_REDIS_HOST || "127.0.0.1",
+        port: process.env.FABU_REDIS_PORT || "6379",
+        password: process.env.FABU_REDIS_PASSWORD || "",
+        db: process.env.FABU_REDIS_DB || "0",
+        keyPrefix: process.env.FABU_REDIS_KEY || "kath",
     },
 
     email: {

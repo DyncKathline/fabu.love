@@ -10,8 +10,9 @@ const {
   publicPath
 } = require("./src/config/settings");
 const isProduction = process.env.NODE_ENV === "production";
-console.log(process.env.VUE_APP_FABU_BASE_URL);
-console.log(process.env.VUE_APP_FABU_ALLOW_REGISTER);
+console.log('NODE_ENV-----', process.env.NODE_ENV);
+console.log('VUE_APP_FABU_BASE_URL-----', process.env.VUE_APP_FABU_BASE_URL);
+console.log('VUE_APP_FABU_ALLOW_REGISTER-----', process.env.VUE_APP_FABU_ALLOW_REGISTER);
 process.env.VUE_APP_TITLE = title || name;
 process.env.VUE_APP_AUTHOR = author || "vue";
 process.env.VUE_APP_VERSION = version;
