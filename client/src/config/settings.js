@@ -1,4 +1,5 @@
 let baseURL = process.env.VUE_APP_FABU_BASE_URL;
+const isRegister = process.env.VUE_APP_FABU_ALLOW_REGISTER;
 let publicPath = "/";
 const prefix = "project_";
 
@@ -22,7 +23,8 @@ module.exports = {
     "/404",
     "/403"
   ],
-  //标题分隔符
+  //是否可以注册，配合后端一起使用
+  isRegister: isRegister,
   titleSeparator: " - ",
   //标题是否反转 如果为false:"page - title"，如果为ture:"title - page"
   titleReverse: false,

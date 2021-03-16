@@ -88,7 +88,7 @@
             >{{ showType === "login" ? "立即登录" : "立即注册" }}
           </el-button>
 
-          <div class="user-login-form-label" v-if="showType === 'login'">
+          <div class="user-login-form-label" v-if="isRegister && showType === 'login'">
             <p>没有账号？<span @click="onRegister">立即注册</span></p>
           </div>
           <div class="user-login-form-label" v-if="showType === 'register'">
@@ -109,13 +109,14 @@ import TokenMgr from "@/mgr/TokenMgr";
 import { saveUserInfo } from "@/mgr/userMgr";
 import utils from "@/common/js/utils";
 import { formatContent } from "@/common/animFont";
-import {title} from "@/config/settings";
+import {title, isRegister} from "@/config/settings";
 
 export default {
   data() {
     return {
       title: "",
       hide: true,
+      isRegister: true,
       username: "",
       password: "",
       isLogin: false,
@@ -126,6 +127,7 @@ export default {
     };
   },
   mounted() {
+    this.isRegister = isRegister;
     this.title = title;
     const container = document.querySelector('.content');
     formatContent(container, this.title)

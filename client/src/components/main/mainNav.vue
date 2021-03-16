@@ -51,7 +51,7 @@
       </el-menu>
     </div>
 
-    <div class="mainNav-footer">
+    <div v-if="!hide" class="mainNav-footer">
       <el-menu class="mainNav-footer-list">
         <el-menu-item index="API文档" @click="clickSubItem">
           <i class="icon-ic_api_s"></i>
@@ -80,6 +80,7 @@
 export default {
   data() {
     return {
+      hide: true,
       activeIndex: "应用列表"
     };
   },
