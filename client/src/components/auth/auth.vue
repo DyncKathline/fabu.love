@@ -334,7 +334,7 @@ export default {
   margin-top: 17.6vh;
   background-size: 210px 40px;
   background-repeat: no-repeat;
-  background-image: url("../../assets/logo_w.png");
+  background-image: url("../../assets/logo_w1.png");
 }
 
 .user-divier {

@@ -1,9 +1,3 @@
-//通过设置NODE_ENV来加载不同环境
-let dotenv = require("dotenv")
-const isProduction = process.env.NODE_ENV === 'production'
-dotenv.config({ path: isProduction ? './.env.pro' : './.env.dev' })
-console.log('----------', process.env.NODE_ENV, isProduction)
-
 // 导入koa，和koa 1.x不同，在koa2中，我们导入的是一个class，因此用大写的Koa表示:
 import router from "./controller";
 import config from "./config";

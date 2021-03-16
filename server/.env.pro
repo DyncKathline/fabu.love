@@ -1,6 +1,7 @@
 FABU_BASE_URL = https://127.0.0.1:9898
 FABU_PORT = 9898
 FABU_ALLOW_REGISTER = false
+FABU_TITLE = APP管理平台
 
 //mysql
 FABU_DB = fabulove

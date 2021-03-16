@@ -1,5 +1,10 @@
 // var fs = require("fs")
 const path = require("path")
+//通过设置NODE_ENV来加载不同环境
+let dotenv = require("dotenv")
+const isProduction = process.env.NODE_ENV === 'production'
+dotenv.config({ path: isProduction ? './.env.pro' : './.env.dev' })
+console.log('----------', process.env.NODE_ENV, isProduction)
 
 const config = {
     baseUrl: process.env.FABU_BASE_URL || "https://127.0.0.1:9898", //baseUrl应用请求的url地址,比如https://fabu.love
@@ -51,6 +56,7 @@ const config = {
     },
 
     allowRegister: boolConfig(process.env.FABU_ALLOW_REGISTER || true), //是否允许用户注册,为否则后端注册接口不可用
+    title: process.env.FABU_TITLE || '爱发布'
 };
 
 function boolConfig(str) {

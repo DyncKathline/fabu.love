@@ -59,9 +59,9 @@ module.exports = class TeamRouter {
         team.createTime = now;
         const { id: teamId } = await Team.create(team);
         team.members = [{
-            id: newUser.id,
-            username: newUser.username,
-            email: newUser.email,
+            id: user.id,
+            username: user.username,
+            email: user.email,
             role: caches.Teams[0].id,
             roleName: caches.Teams[0].name//"owner"
         }];
@@ -223,7 +223,10 @@ module.exports = class TeamRouter {
         // 如果用户不存在则发送邮件邀请
         const dif = _.difference(emailList, _.map(userList, 'email'))
         if (dif.length != 0) {
-            Mail.send(dif, `${user.username}邀请您加入爱发布`, `${user.username}邀请您加入${team.name}"团队.如果您还没有注册爱发布，请点击 ${config.baseUrl} 注册`)
+            Mail.send(dif, `[${config.title}邮箱注册邀请]`, `<body>
+            <div style="font-size: 20px;padding: 10px 0;"><span>亲爱的用户：</span></div>
+            <div><span style="font-size:15px">您好！“${user.username}”用户正在邀请你使用“${config.title}”，您还没有注册，</span><a href="${config.baseUrl}">请点击注册</a></span></div>
+        </body>`)
         }
 
         const members = await TeamMembers.findAll({
