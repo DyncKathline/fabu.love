@@ -24,7 +24,7 @@
                 <span class="el-icon-message"></span>
               </el-badge>
               <p class="canwrap content">{{ item.content }}</p>
-              <p class="timer" v-html="getTimer(item.sendAt)"></p>
+              <p class="timer" v-html="getTimer(item.sendTime)"></p>
             </li>
           </ul>
 

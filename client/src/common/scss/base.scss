@@ -18,6 +18,27 @@ body {
   padding: 0;
 }
 
+::-webkit-scrollbar {
+  /*滚动条整体样式*/
+  width: 6px;
+  /*高宽分别对应横竖滚动条的尺寸*/
+  height: 1px;
+}
+
+::-webkit-scrollbar-thumb {
+  /*滚动条里面小方块*/
+  border-radius: 10px;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+  background: #535353;
+}
+
+::-webkit-scrollbar-track {
+  /*滚动条里面轨道*/
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  background: #ededed;
+}
+
 // 一行，多余显示....
 .nowrap {
   text-overflow: ellipsis;
@@ -84,24 +105,30 @@ body {
   //transform-origin: 0 0;
   //transform: scaleY(0.5);
 
-  @if $position == top {
+  @if $position==top {
     left: 0;
     top: 0;
     right: 0;
     height: 1px;
     border-top: 1px solid $color;
-  } @else if $position == bottom {
+  }
+
+  @else if $position==bottom {
     bottom: 0;
     left: 0;
     right: 0;
     height: 1px;
     border-bottom: 1px solid $color;
-  } @else if $position == left {
+  }
+
+  @else if $position==left {
     bottom: 0;
     top: 0;
     left: 0;
     border-left: 1px solid $color;
-  } @else if $position == right {
+  }
+
+  @else if $position==right {
     bottom: 0;
     top: 0;
     right: 0;

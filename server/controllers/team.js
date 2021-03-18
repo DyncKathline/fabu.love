@@ -225,7 +225,7 @@ module.exports = class TeamRouter {
         if (dif.length != 0) {
             Mail.send(dif, `[${config.title}邮箱注册邀请]`, `<body>
             <div style="font-size: 20px;padding: 10px 0;"><span>亲爱的用户：</span></div>
-            <div><span style="font-size:15px">您好！“${user.username}”用户正在邀请你使用“${config.title}”，您还没有注册，</span><a href="${config.baseUrl}">请点击注册</a></span></div>
+            <div><span style="font-size:15px">您好！“${user.username}”用户正在邀请你使用“${config.title}”，您还没有注册，请点击 ${config.baseUrl} 前往注册</span></div>
         </body>`)
         }
 
